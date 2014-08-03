@@ -14,6 +14,9 @@
  */
 
 #include "common.h"
+#include "macros.h"
+
+#define PROTOCOL_SticksMoved(x) (void)0
 
 static u8 proto_state;
 static u32 bind_time;

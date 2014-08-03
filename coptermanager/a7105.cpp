@@ -13,48 +13,33 @@
     along with Deviation.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifdef MODULAR
-  //Allows the linker to properly relocate
-  #define DEVO_Cmds PROTO_Cmds
-  #pragma long_calls
-#endif
+#include <Arduino.h>
+#include <SPI.h>
 #include "common.h"
-#include "config/tx.h"
-#include "protocol/interface.h"
-#include "protospi.h"
+#include "macros.h"
+#include "a7105.h"
 
-#ifdef PROTO_HAS_A7105
+#define CS_PIN 10
 
-static void  CS_HI() {
-#if HAS_MULTIMOD_SUPPORT
-    if (MODULE_ENABLE[MULTIMOD].port) {
-        //We need to set the multimodule CSN even if we don't use it
-        //for this protocol so that it doesn't interpret commands
-        PROTOSPI_pin_set(MODULE_ENABLE[MULTIMOD]);
-        if(MODULE_ENABLE[A7105].port == SWITCH_ADDRESS) {
-            for(int i = 0; i < 20; i++)
-                _NOP();
-            return;
-        }
-    }
-#endif
-    PROTOSPI_pin_set(MODULE_ENABLE[A7105]);
+#define PROTOSPI_xfer(x) SPI.transfer(x)
+#define PROTOSPI_read3wire() SPI.transfer(0)
+
+inline static void  CS_HI() {
+    digitalWrite(CS_PIN, HIGH);
 }
 
-static void CS_LO() {
-#if HAS_MULTIMOD_SUPPORT
-    if (MODULE_ENABLE[MULTIMOD].port) {
-        //We need to set the multimodule CSN even if we don't use it
-        //for this protocol so that it doesn't interpret commands
-        PROTOSPI_pin_clear(MODULE_ENABLE[MULTIMOD]);
-        if(MODULE_ENABLE[A7105].port == SWITCH_ADDRESS) {
-            for(int i = 0; i < 20; i++)
-                _NOP();
-            return;
-        }
-    }
-#endif
-    PROTOSPI_pin_clear(MODULE_ENABLE[A7105]);
+inline static void CS_LO() {
+    digitalWrite(CS_PIN, LOW);
+}
+
+void A7105_Setup() {
+    pinMode(CS_PIN, OUTPUT);
+    SPI.begin();
+    SPI.setDataMode(SPI_MODE0);
+    // SPI.setClockDivider(10);
+    SPI.setBitOrder(MSBFIRST);
+    // set gpio1 to SDO (MISO) by writing to reg GIO1S
+    // A7105_WriteReg(0x0b,0x06); // 0b0110
 }
 
 void A7105_WriteReg(u8 address, u8 data)
@@ -94,7 +79,7 @@ void A7105_WriteData(u8 *dpbuffer, u8 len, u8 channel)
 }
 void A7105_ReadData(u8 *dpbuffer, u8 len)
 {
-    A7105_Strobe(0xF0); //A7105_RST_RDPTR
+    A7105_Strobe(A7105_RST_RDPTR); //A7105_RST_RDPTR
     for(int i = 0; i < len; i++)
         dpbuffer[i] = A7105_ReadReg(0x05);
     return;
@@ -178,5 +163,3 @@ void A7105_Strobe(enum A7105_State state)
     CS_HI();
 }
 
-//#pragma long_calls_off
-#endif

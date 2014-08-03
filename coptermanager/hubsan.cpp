@@ -13,28 +13,21 @@
  along with Deviation.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifdef MODULAR
-  //Allows the linker to properly relocate
-  #define HUBSAN_Cmds PROTO_Cmds
-  #pragma long_calls
-#endif
+#include <Arduino.h>
 #include "common.h"
-#include "interface.h"
-#include "mixer.h"
-#include "config/model.h"
-#include <string.h>
-#include <stdlib.h>
-#include "telemetry.h"
+#include "macros.h"
+#include "a7105.h"
+#include "protocol.h"
 
+static struct Model Model = {
+    {0, 0, 0, 0},
+    TXPOWER_10mW
+};
 
-#ifdef MODULAR
-  //Some versions of gcc applythis to definitions, others to calls
-  //So just use long_calls everywhere
-  //#pragma long_calls_off
-  extern unsigned _data_loadaddr;
-  const unsigned long protocol_type = (unsigned long)&_data_loadaddr;
-#endif
-#ifdef PROTO_HAS_A7105
+struct DeviceState State = {
+    0, 0, 0, 0,
+    0, 0, 0
+};
 
 #define TELEM_ON 0
 #define TELEM_OFF 1
@@ -47,18 +40,11 @@ enum{
 
 #define VTX_STEP_SIZE "5"
 
-static const char * const hubsan4_opts[] = {
-    _tr_noop("vTX MHz"),  "5645", "5945", VTX_STEP_SIZE, NULL,
-    _tr_noop("Telemetry"),  _tr_noop("On"), _tr_noop("Off"), NULL,
-    NULL
-};
-
 enum {
     PROTOOPTS_VTX_FREQ = 0,
     PROTOOPTS_TELEMETRY,
     LAST_PROTO_OPT,
 };
-ctassert(LAST_PROTO_OPT <= NUM_PROTO_OPTS, too_many_protocol_opts);
 
 static u8 packet[16];
 static u8 channel;
@@ -206,16 +192,6 @@ static void hubsan_build_bind_packet(u8 state)
     update_crc();
 }
 
-static s16 get_channel(u8 ch, s32 scale, s32 center, s32 range)
-{
-    s32 value = (s32)Channels[ch] * scale / CHAN_MAX_VALUE + center;
-    if (value < center - range)
-        value = center - range;
-    if (value >= center + range)
-        value = center + range -1;
-    return value;
-}
-
 static void hubsan_build_packet()
 {
     static s16 vtx_freq = 0; 
@@ -232,11 +208,11 @@ static void hubsan_build_packet()
     else //20 00 00 00 80 00 7d 00 84 02 64 db 04 26 79 7b
     {
         packet[0] = 0x20;
-        packet[2] = get_channel(2, 0x80, 0x80, 0x80); //Throttle
+        packet[2] = State.throttle; //Throttle
     }
-    packet[4] = 0xff - get_channel(3, 0x80, 0x80, 0x80); //Rudder is reversed
-    packet[6] = 0xff - get_channel(1, 0x80, 0x80, 0x80); //Elevator is reversed
-    packet[8] = get_channel(0, 0x80, 0x80, 0x80); //Aileron 
+    packet[4] = 0xff - State.rudder; //Rudder is reversed
+    packet[6] = 0xff - State.elevator; //Elevator is reversed
+    packet[8] = State.aileron; //Aileron 
     if(packet_count < 100)
     {
         packet[9] = 0x02 | FLAG_LED | FLAG_FLIP; // sends default value for the 100 first packets
@@ -246,13 +222,13 @@ static void hubsan_build_packet()
     {
         packet[9] = 0x02;
         // Channel 5
-        if(Channels[4] >= 0)
+        if(State.led)
             packet[9] |= FLAG_LED;
         // Channel 6
-        if(Channels[5] >= 0)
+        if(State.flip >= 0)
             packet[9] |= FLAG_FLIP;
         // Channel 7
-        if(Channels[6] >0) // off by default
+        if(State.video >0) // off by default
             packet[9] |= FLAG_VIDEO;
     }
     packet[10] = 0x64;
@@ -273,21 +249,9 @@ static u8 hubsan_check_integrity()
 
 static void hubsan_update_telemetry()
 {
-    const u8 *update = NULL;
-    static const u8 telempkt[] = { TELEM_DEVO_VOLT1, 0 };
-    if( (packet[0]==0xe1) && hubsan_check_integrity()) {
-        Telemetry.p.devo.volt[0] = packet[13];
-        update = telempkt;
-    }
-    if (update) {
-        while(*update) {
-            TELEMETRY_SetUpdated(*update++);
-        }
-    }
 }
 
-MODULE_CALLTYPE
-static u16 hubsan_cb()
+u16 hubsan_cb()
 {
     static u8 txState = 0;
     static int delay = 0;
@@ -402,7 +366,7 @@ static u16 hubsan_cb()
     return 0;
 }
 
-static void initialize() {
+void initialize() {
     CLOCK_StopTimer();
     while(1) {
         A7105_Reset();
@@ -415,34 +379,10 @@ static void initialize() {
     PROTOCOL_SetBindState(0xFFFFFFFF);
     state = BIND_1;
     packet_count=0;
-    memset(&Telemetry, 0, sizeof(Telemetry));
-    TELEMETRY_SetType(TELEM_DEVO);
+    //memset(&Telemetry, 0, sizeof(Telemetry));
+    //TELEMETRY_SetType(TELEM_DEVO);
     if( Model.proto_opts[PROTOOPTS_VTX_FREQ] == 0)
         Model.proto_opts[PROTOOPTS_VTX_FREQ] = 5885;
     CLOCK_StartTimer(10000, hubsan_cb);
 }
 
-const void *HUBSAN_Cmds(enum ProtoCmds cmd)
-{
-    switch(cmd) {
-        case PROTOCMD_INIT:  initialize(); return 0;
-        case PROTOCMD_DEINIT:
-        case PROTOCMD_RESET:
-            CLOCK_StopTimer();
-            return (void *)(A7105_Reset() ? 1L : -1L);
-        case PROTOCMD_CHECK_AUTOBIND: return (void *)1L; //Always autobind
-        case PROTOCMD_BIND:  initialize(); return 0;
-        case PROTOCMD_NUMCHAN: return (void *)7L; // A, E, T, R, Leds, Flips, Video Recording
-        case PROTOCMD_DEFAULT_NUMCHAN: return (void *)7L;
-        case PROTOCMD_CURRENT_ID: return 0;
-        case PROTOCMD_GETOPTIONS:
-            if( Model.proto_opts[PROTOOPTS_VTX_FREQ] == 0)
-                Model.proto_opts[PROTOOPTS_VTX_FREQ] = 5885;
-            return hubsan4_opts;
-        case PROTOCMD_TELEMETRYSTATE: 
-            return (void *)(long)(Model.proto_opts[PROTOOPTS_TELEMETRY] == TELEM_ON ? PROTO_TELEM_ON : PROTO_TELEM_OFF);
-        default: break;
-    }
-    return 0;
-}
-#endif

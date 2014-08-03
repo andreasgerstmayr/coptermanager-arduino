@@ -1,5 +1,7 @@
-#ifndef _IFACE_A7105_H_
-#define _IFACE_A7105_H_
+#ifndef A7105_H
+#define A7105_H
+
+#include "common.h"
 
 enum A7105_State {
     A7105_SLEEP     = 0x80,
@@ -72,6 +74,7 @@ enum A7105_MASK {
     A7105_MASK_VBCF = 1 << 3,
 };
 
+void A7105_Setup();
 void A7105_Initialize();
 void A7105_WriteReg(u8 addr, u8 value);
 void A7105_WriteData(u8 *dpbuffer, u8 len, u8 channel);
@@ -85,3 +88,4 @@ void A7105_SetTxRxMode(enum TXRX_State);
 
 
 #endif
+
