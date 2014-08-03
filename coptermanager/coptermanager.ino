@@ -12,25 +12,25 @@ void loop()
 {
     int startTime, waitTime, hubsanWait, finishTime;
     //Serial.println("Preinit");
-    initialize();
+    Session *session = initialize();
 
     startTime = micros();
     while (1) {
         if (Serial.available() > 4) {
             if (Serial.read() != 23) {
-            //throttle = rudder = aileron = elevator = 0;
+                //throttle = rudder = aileron = elevator = 0;
             } else {
-                State.throttle = Serial.read();
-                State.rudder = Serial.read();
-                State.aileron = Serial.read();
-                State.elevator = Serial.read();
+                session->throttle = Serial.read();
+                session->rudder = Serial.read();
+                session->aileron = Serial.read();
+                session->elevator = Serial.read();
             }
         }
     
         //if (state!=0 && state!=1 & state!=128)
         //Serial.print("State: ");
         //Serial.println(state);
-        hubsanWait = hubsan_cb();
+        hubsanWait = hubsan_cb(session);
         // finishTime=micros();
         // waitTime = hubsanWait - (micros() - startTime);
         // Serial.print("hubsanWait: " ); Serial.println(hubsanWait);

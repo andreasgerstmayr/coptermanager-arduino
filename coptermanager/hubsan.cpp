@@ -24,11 +24,6 @@ static struct Model Model = {
     TXPOWER_10mW
 };
 
-struct DeviceState State = {
-    0, 0, 0, 0,
-    0, 0, 0
-};
-
 #define TELEM_ON 0
 #define TELEM_OFF 1
 
@@ -46,13 +41,9 @@ enum {
     LAST_PROTO_OPT,
 };
 
-static u8 packet[16];
-static u8 channel;
 static const u8 allowed_ch[] = {0x14, 0x1e, 0x28, 0x32, 0x3c, 0x46, 0x50, 0x5a, 0x64, 0x6e, 0x78, 0x82};
-static u32 sessionid;
 static const u32 txid = 0xdb042679;
-static u8 state;
-static u8 packet_count;
+
 enum {
     BIND_1,
     BIND_2,
@@ -165,107 +156,107 @@ static int hubsan_init()
     return 1;
 }
 
-static void update_crc()
+static void update_crc(Session *session)
 {
     int sum = 0;
     for(int i = 0; i < 15; i++)
-        sum += packet[i];
-    packet[15] = (256 - (sum % 256)) & 0xff;
+        sum += session->packet[i];
+    session->packet[15] = (256 - (sum % 256)) & 0xff;
 }
-static void hubsan_build_bind_packet(u8 state)
+static void hubsan_build_bind_packet(Session *session, u8 state)
 {
-    packet[0] = state;
-    packet[1] = channel;
-    packet[2] = (sessionid >> 24) & 0xff;
-    packet[3] = (sessionid >> 16) & 0xff;
-    packet[4] = (sessionid >>  8) & 0xff;
-    packet[5] = (sessionid >>  0) & 0xff;
-    packet[6] = 0x08;
-    packet[7] = 0xe4; //???
-    packet[8] = 0xea;
-    packet[9] = 0x9e;
-    packet[10] = 0x50;
-    packet[11] = (txid >> 24) & 0xff;
-    packet[12] = (txid >> 16) & 0xff;
-    packet[13] = (txid >>  8) & 0xff;
-    packet[14] = (txid >>  0) & 0xff;
-    update_crc();
+    session->packet[0] = state;
+    session->packet[1] = session->channel;
+    session->packet[2] = (session->sessionid >> 24) & 0xff;
+    session->packet[3] = (session->sessionid >> 16) & 0xff;
+    session->packet[4] = (session->sessionid >>  8) & 0xff;
+    session->packet[5] = (session->sessionid >>  0) & 0xff;
+    session->packet[6] = 0x08;
+    session->packet[7] = 0xe4; //???
+    session->packet[8] = 0xea;
+    session->packet[9] = 0x9e;
+    session->packet[10] = 0x50;
+    session->packet[11] = (txid >> 24) & 0xff;
+    session->packet[12] = (txid >> 16) & 0xff;
+    session->packet[13] = (txid >>  8) & 0xff;
+    session->packet[14] = (txid >>  0) & 0xff;
+    update_crc(session);
 }
 
-static void hubsan_build_packet()
+static void hubsan_build_packet(Session *session)
 {
     static s16 vtx_freq = 0; 
-    memset(packet, 0, 16);
-    if(vtx_freq != Model.proto_opts[PROTOOPTS_VTX_FREQ] || packet_count==100) // set vTX frequency (H107D)
+    memset(session->packet, 0, 16);
+    if(vtx_freq != Model.proto_opts[PROTOOPTS_VTX_FREQ] || session->packet_count==100) // set vTX frequency (H107D)
     {
         vtx_freq = Model.proto_opts[PROTOOPTS_VTX_FREQ];
-        packet[0] = 0x40;
-        packet[1] = (vtx_freq >> 8) & 0xff;
-        packet[2] = vtx_freq & 0xff;
-        packet[3] = 0x82;
-        packet_count++;      
+        session->packet[0] = 0x40;
+        session->packet[1] = (vtx_freq >> 8) & 0xff;
+        session->packet[2] = vtx_freq & 0xff;
+        session->packet[3] = 0x82;
+        session->packet_count++;      
     }
     else //20 00 00 00 80 00 7d 00 84 02 64 db 04 26 79 7b
     {
-        packet[0] = 0x20;
-        packet[2] = State.throttle; //Throttle
+        session->packet[0] = 0x20;
+        session->packet[2] = session->throttle; //Throttle
     }
-    packet[4] = 0xff - State.rudder; //Rudder is reversed
-    packet[6] = 0xff - State.elevator; //Elevator is reversed
-    packet[8] = State.aileron; //Aileron 
-    if(packet_count < 100)
+    session->packet[4] = 0xff - session->rudder; //Rudder is reversed
+    session->packet[6] = 0xff - session->elevator; //Elevator is reversed
+    session->packet[8] = session->aileron; //Aileron 
+    if(session->packet_count < 100)
     {
-        packet[9] = 0x02 | FLAG_LED | FLAG_FLIP; // sends default value for the 100 first packets
-        packet_count++;
+        session->packet[9] = 0x02 | FLAG_LED | FLAG_FLIP; // sends default value for the 100 first packets
+        session->packet_count++;
     }
     else
     {
-        packet[9] = 0x02;
+        session->packet[9] = 0x02;
         // Channel 5
-        if(State.led)
-            packet[9] |= FLAG_LED;
+        if(session->led)
+            session->packet[9] |= FLAG_LED;
         // Channel 6
-        if(State.flip >= 0)
-            packet[9] |= FLAG_FLIP;
+        if(session->flip >= 0)
+            session->packet[9] |= FLAG_FLIP;
         // Channel 7
-        if(State.video >0) // off by default
-            packet[9] |= FLAG_VIDEO;
+        if(session->video >0) // off by default
+            session->packet[9] |= FLAG_VIDEO;
     }
-    packet[10] = 0x64;
-    packet[11] = (txid >> 24) & 0xff;
-    packet[12] = (txid >> 16) & 0xff;
-    packet[13] = (txid >>  8) & 0xff;
-    packet[14] = (txid >>  0) & 0xff;
-    update_crc();
+    session->packet[10] = 0x64;
+    session->packet[11] = (txid >> 24) & 0xff;
+    session->packet[12] = (txid >> 16) & 0xff;
+    session->packet[13] = (txid >>  8) & 0xff;
+    session->packet[14] = (txid >>  0) & 0xff;
+    update_crc(session);
 }
 
-static u8 hubsan_check_integrity() 
+static u8 hubsan_check_integrity(Session *session) 
 {
     int sum = 0;
     for(int i = 0; i < 15; i++)
-        sum += packet[i];
-    return packet[15] == ((256 - (sum % 256)) & 0xff);
+        sum += session->packet[i];
+    return session->packet[15] == ((256 - (sum % 256)) & 0xff);
 }
 
 static void hubsan_update_telemetry()
 {
 }
 
-u16 hubsan_cb()
+u16 hubsan_cb(Session *session)
 {
     static u8 txState = 0;
     static int delay = 0;
     static u8 rfMode=0;
     int i;
-    switch(state) {
+    switch(session->state) {
     case BIND_1:
     case BIND_3:
     case BIND_5:
     case BIND_7:
-        hubsan_build_bind_packet(state == BIND_7 ? 9 : (state == BIND_5 ? 1 : state + 1 - BIND_1));
+        hubsan_build_bind_packet(session, session->state == BIND_7 ? 9 : (session->state == BIND_5 ? 1 : session->state + 1 - BIND_1));
         A7105_Strobe(A7105_STANDBY);
-        A7105_WriteData(packet, 16, channel);
-        state |= WAIT_WRITE;
+        A7105_WriteData(session->packet, 16, session->channel);
+        session->state |= WAIT_WRITE;
         return 3000;
     case BIND_1 | WAIT_WRITE:
     case BIND_3 | WAIT_WRITE:
@@ -280,37 +271,37 @@ u16 hubsan_cb()
         //    printf("Failed to complete write\n");
         A7105_SetTxRxMode(RX_EN);
         A7105_Strobe(A7105_RX);
-        state &= ~WAIT_WRITE;
-        state++;
+        session->state &= ~WAIT_WRITE;
+        session->state++;
         return 4500; //7.5msec elapsed since last write
     case BIND_2:
     case BIND_4:
     case BIND_6:
         A7105_SetTxRxMode(TX_EN);
         if(A7105_ReadReg(A7105_00_MODE) & 0x01) {
-            state = BIND_1;
+            session->state = BIND_1;
             return 4500; //No signal, restart binding procedure.  12msec elapsed since last write
         }
-        A7105_ReadData(packet, 16);
-        state++;
-        if (state == BIND_5)
-            A7105_WriteID((packet[2] << 24) | (packet[3] << 16) | (packet[4] << 8) | packet[5]);
+        A7105_ReadData(session->packet, 16);
+        session->state++;
+        if (session->state == BIND_5)
+            A7105_WriteID((session->packet[2] << 24) | (session->packet[3] << 16) | (session->packet[4] << 8) | session->packet[5]);
         
         return 500;  //8msec elapsed time since last write;
     case BIND_8:
         A7105_SetTxRxMode(TX_EN);
         if(A7105_ReadReg(A7105_00_MODE) & 0x01) {
-            state = BIND_7;
+            session->state = BIND_7;
             return 15000; //22.5msec elapsed since last write
         }
-        A7105_ReadData(packet, 16);
-        if(packet[1] == 9) {
-            state = DATA_1;
+        A7105_ReadData(session->packet, 16);
+        if(session->packet[1] == 9) {
+            session->state = DATA_1;
             A7105_WriteReg(A7105_1F_CODE_I, 0x0F);
             PROTOCOL_SetBindState(0);
             return 28000; //35.5msec elapsed since last write
         } else {
-            state = BIND_7;
+            session->state = BIND_7;
             return 15000; //22.5 msec elapsed since last write
         }
     case DATA_1:
@@ -320,15 +311,15 @@ u16 hubsan_cb()
     case DATA_5:
         if( txState == 0) { // send packet
             rfMode = A7105_TX;
-            if( state == DATA_1)
+            if( session->state == DATA_1)
                 A7105_SetPower( Model.tx_power); //Keep transmit power in sync
-            hubsan_build_packet();
+            hubsan_build_packet(session);
             A7105_Strobe(A7105_STANDBY);
-            A7105_WriteData( packet, 16, state == DATA_5 ? channel + 0x23 : channel);
-            if (state == DATA_5)
-                state = DATA_1;
+            A7105_WriteData( session->packet, 16, session->state == DATA_5 ? session->channel + 0x23 : session->channel);
+            if (session->state == DATA_5)
+                session->state = DATA_1;
             else
-                state++;
+                session->state++;
             delay=3000;
         }
         else {
@@ -347,7 +338,7 @@ u16 hubsan_cb()
                 if( rfMode == A7105_RX) { // check for telemetry frame
                     for( i=0; i<10; i++) {
                         if( !(A7105_ReadReg(A7105_00_MODE) & 0x01)) { // data received
-                            A7105_ReadData(packet, 16);
+                            A7105_ReadData(session->packet, 16);
                             hubsan_update_telemetry();
                             A7105_Strobe(A7105_RX);
                             break;
@@ -366,7 +357,11 @@ u16 hubsan_cb()
     return 0;
 }
 
-void initialize() {
+Session* initialize()
+{
+    Session *session = (Session*)malloc(sizeof(Session));
+    *session = EmptySession;
+    
     CLOCK_StopTimer();
     while(1) {
         A7105_Reset();
@@ -374,15 +369,16 @@ void initialize() {
         if (hubsan_init())
             break;
     }
-    sessionid = rand32_r(0, 0);
-    channel = allowed_ch[rand32_r(0, 0) % sizeof(allowed_ch)];
+    session->sessionid = rand32_r(0, 0);
+    session->channel = allowed_ch[rand32_r(0, 0) % sizeof(allowed_ch)];
     PROTOCOL_SetBindState(0xFFFFFFFF);
-    state = BIND_1;
-    packet_count=0;
+    session->state = BIND_1;
+    session->packet_count=0;
     //memset(&Telemetry, 0, sizeof(Telemetry));
     //TELEMETRY_SetType(TELEM_DEVO);
     if( Model.proto_opts[PROTOOPTS_VTX_FREQ] == 0)
         Model.proto_opts[PROTOOPTS_VTX_FREQ] = 5885;
     CLOCK_StartTimer(10000, hubsan_cb);
+    return session;
 }
 

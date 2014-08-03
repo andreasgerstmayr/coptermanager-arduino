@@ -36,15 +36,23 @@ struct Model {
     enum TxPower tx_power;
 };
 
-struct DeviceState {
-  u8 throttle;
-  u8 rudder;
-  u8 aileron;
-  u8 elevator;
-  int led;
-  int flip;
-  int video;
+struct Session {
+    u8 packet[16];
+    u8 channel;
+    u32 sessionid;
+    u8 state;
+    u8 packet_count;
+
+    u8 throttle;
+    u8 rudder;
+    u8 aileron;
+    u8 elevator;
+    int led;
+    int flip;
+    int video;
 };
+
+static const Session EmptySession = {0};
 
 #endif
 
