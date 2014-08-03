@@ -43,10 +43,10 @@ struct Session {
     u8 state;
     u8 packet_count;
 
-    u8 throttle;
-    u8 rudder;
-    u8 aileron;
-    u8 elevator;
+    u8 throttle; // observed range: 0x00 - 0xff (smaller is down)
+    u8 rudder; // observed range: 0x34 - 0xcc (smaller is right)
+    u8 aileron; // observed range: 0x45 - 0xc3 (smaller is right)
+    u8 elevator; // observed range: 0x3e - 0xbc (smaller is up)
     int led;
     int flip;
     int video;

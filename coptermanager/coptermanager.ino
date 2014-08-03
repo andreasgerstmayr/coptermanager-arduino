@@ -1,43 +1,37 @@
+#include <Scheduler.h>
 #include <SPI.h>
-#include "a7105.h"
-#include "hubsan.h"
+#include "manager.h"
 
 void setup()
 {
-    Serial.begin(115200);
-    A7105_Setup(); //A7105_Reset();
+    manager_init();
+    Scheduler.startLoop(copter1);
+    Scheduler.startLoop(copter2);
 }
 
 void loop()
 {
-    int startTime, waitTime, hubsanWait, finishTime;
-    //Serial.println("Preinit");
-    Session *session = initialize();
-
-    startTime = micros();
-    while (1) {
-        if (Serial.available() > 4) {
-            if (Serial.read() != 23) {
-                //throttle = rudder = aileron = elevator = 0;
-            } else {
-                session->throttle = Serial.read();
-                session->rudder = Serial.read();
-                session->aileron = Serial.read();
-                session->elevator = Serial.read();
-            }
-        }
-    
-        //if (state!=0 && state!=1 & state!=128)
-        //Serial.print("State: ");
-        //Serial.println(state);
-        hubsanWait = hubsan_cb(session);
-        // finishTime=micros();
-        // waitTime = hubsanWait - (micros() - startTime);
-        // Serial.print("hubsanWait: " ); Serial.println(hubsanWait);
-        // Serial.print("waitTime: " ); Serial.println(waitTime);
-        //Serial.println(hubsanWait);
-        delayMicroseconds(hubsanWait);
-        startTime = micros();
+    if (Serial.available() >= 3) {
+        int copterid = Serial.read();
+        int command = Serial.read();
+        int value = Serial.read();
+        
+        int ret = manager_processcommand(copterid, command, value);
+        Serial.write(ret);
     }
+    
+    yield(); // pass control to other loops
+}
+
+void copter1()
+{
+    manager_loop(1);
+    yield();
+}
+
+void copter2()
+{
+    manager_loop(2);
+    yield();
 }
 
