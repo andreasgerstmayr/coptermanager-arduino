@@ -357,11 +357,8 @@ u16 hubsan_cb(Session *session)
     return 0;
 }
 
-Session* initialize()
+void hubsan_initialize()
 {
-    Session *session = (Session*)malloc(sizeof(Session));
-    *session = EmptySession;
-    
     CLOCK_StopTimer();
     while(1) {
         A7105_Reset();
@@ -369,6 +366,12 @@ Session* initialize()
         if (hubsan_init())
             break;
     }
+}
+  
+Session* hubsan_bind()
+{
+    Session *session = (Session*)malloc(sizeof(Session));
+    *session = EmptySession;
     session->sessionid = rand32_r(0, 0);
     session->channel = allowed_ch[rand32_r(0, 0) % sizeof(allowed_ch)];
     PROTOCOL_SetBindState(0xFFFFFFFF);

@@ -4,7 +4,7 @@
 #define NUM_COPTERS 2
 
 enum {
-    COPTER_INIT     = 0x01,
+    COPTER_BIND     = 0x01,
     COPTER_THROTTLE = 0x02,
     COPTER_RUDDER   = 0x03,
     COPTER_AILERON  = 0x04,
