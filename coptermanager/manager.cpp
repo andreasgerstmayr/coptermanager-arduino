@@ -26,20 +26,20 @@ static int copter_bind(int type)
                     break;
                     
                 default:
-                    return -1;
+                    return PROTOCOL_ERROR;
             }
             return i;
         }
     }
     
-    return -1;
+    return PROTOCOL_ERROR;
 }
 
 // copterid: 1..NUM_COPTERS
 int manager_processcommand(int copterid, int command, int value)
 {
     if (copterid < 1 || copterid > NUM_COPTERS)
-        return -1;
+        return PROTOCOL_ERROR;
         
     switch(command) {
         case COPTER_BIND:
@@ -64,7 +64,7 @@ int manager_processcommand(int copterid, int command, int value)
             break;
     }
     
-    return 0;
+    return PROTOCOL_OK;
 }
 
 void manager_loop(int copterid)
