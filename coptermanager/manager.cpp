@@ -54,6 +54,7 @@ int manager_processcommand(int copterid, int command, int value)
         case COPTER_VIDEO: session[copterid-1]->video = value; break;
         
         case COPTER_LAND:
+            // TODO: smooth landing
             session[copterid-1]->throttle = 0;
             session[copterid-1]->rudder = 0;
             session[copterid-1]->aileron = 0;
@@ -62,6 +63,23 @@ int manager_processcommand(int copterid, int command, int value)
             session[copterid-1]->flip = 0;
             session[copterid-1]->video = 0;
             break;
+
+        case COPTER_EMERGENCY:
+            session[copterid-1]->throttle = 0;
+            session[copterid-1]->rudder = 0;
+            session[copterid-1]->aileron = 0;
+            session[copterid-1]->elevator = 0;
+            session[copterid-1]->led = 0;
+            session[copterid-1]->flip = 0;
+            session[copterid-1]->video = 0;
+            break;
+
+        case COPTER_DISCONNECT:
+            session[copterid-1] = NULL;
+            break;
+
+        default:
+            return PROTOCOL_ERROR;
     }
     
     return PROTOCOL_OK;
