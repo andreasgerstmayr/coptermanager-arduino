@@ -1,12 +1,10 @@
-#include <Scheduler.h>
+//#include <Scheduler.h>
 #include <SPI.h>
 #include "manager.h"
 
 void setup()
 {
     manager_init();
-    Scheduler.startLoop(copter1);
-    Scheduler.startLoop(copter2);
 }
 
 void loop()
@@ -20,18 +18,5 @@ void loop()
         Serial.write(ret);
     }
     
-    yield(); // pass control to other loops
+    manager_loop();
 }
-
-void copter1()
-{
-    manager_loop(1);
-    yield();
-}
-
-void copter2()
-{
-    manager_loop(2);
-    yield();
-}
-

@@ -18,17 +18,13 @@ enum {
 };
 
 enum {
-    HUBSAN_X4 = 0x01
-};
-
-enum {
     PROTOCOL_OK = 0x00,
     PROTOCOL_ERROR = 0xFF
 };
 
 void manager_init();
 int manager_processcommand(int copterid, int command, int value);
-void manager_loop(int copterid);
+void manager_loop();
 
 #endif
 

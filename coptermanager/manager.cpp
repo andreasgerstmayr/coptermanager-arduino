@@ -1,12 +1,10 @@
 #include <Arduino.h>
-#include <limits.h>
 #include "manager.h"
 #include "common.h"
 #include "a7105.h"
 #include "hubsan.h"
 
 static Session* session[NUM_COPTERS] = {NULL};
-static unsigned long runat[NUM_COPTERS] = {ULONG_MAX};
 
 
 void manager_init()
@@ -22,7 +20,10 @@ static int copter_bind(int type)
         if (session[i-1] == NULL) {
             switch(type) {
                 case HUBSAN_X4:
-                    session[i-1] = hubsan_bind();
+                    session[i-1] = (Session*)malloc(sizeof(Session));
+                    session[i-1]->copterType = HUBSAN_X4;
+                    session[i-1]->nextRunAt = 0;
+                    session[i-1]->copterSession = hubsan_bind();
                     break;
                     
                 default:
@@ -38,43 +39,48 @@ static int copter_bind(int type)
 // copterid: 1..NUM_COPTERS
 int manager_processcommand(int copterid, int command, int value)
 {
-    if (copterid < 1 || copterid > NUM_COPTERS)
+    if (copterid < 1 || copterid > NUM_COPTERS || session[copterid-1] == NULL)
         return PROTOCOL_ERROR;
-        
+    
+    // TODO: other copter types
+    HubsanSession *copterSession = (HubsanSession*)session[copterid-1]->copterSession;
+    
     switch(command) {
         case COPTER_BIND:
             return copter_bind(value);
             
-        case COPTER_THROTTLE: session[copterid-1]->throttle = value; break;
-        case COPTER_RUDDER: session[copterid-1]->rudder = value; break;
-        case COPTER_AILERON: session[copterid-1]->aileron = value; break;
-        case COPTER_ELEVATOR: session[copterid-1]->elevator = value; break;
-        case COPTER_LED: session[copterid-1]->led = value; break;
-        case COPTER_FLIP: session[copterid-1]->flip = value; break;
-        case COPTER_VIDEO: session[copterid-1]->video = value; break;
+        case COPTER_THROTTLE: copterSession->throttle = value; break;
+        case COPTER_RUDDER: copterSession->rudder = value; break;
+        case COPTER_AILERON: copterSession->aileron = value; break;
+        case COPTER_ELEVATOR: copterSession->elevator = value; break;
+        case COPTER_LED: copterSession->led = value; break;
+        case COPTER_FLIP: copterSession->flip = value; break;
+        case COPTER_VIDEO: copterSession->video = value; break;
         
         case COPTER_LAND:
             // TODO: smooth landing
-            session[copterid-1]->throttle = 0;
-            session[copterid-1]->rudder = 0;
-            session[copterid-1]->aileron = 0;
-            session[copterid-1]->elevator = 0;
-            session[copterid-1]->led = 0;
-            session[copterid-1]->flip = 0;
-            session[copterid-1]->video = 0;
+            copterSession->throttle = 0;
+            copterSession->rudder = 0;
+            copterSession->aileron = 0;
+            copterSession->elevator = 0;
+            copterSession->led = 0;
+            copterSession->flip = 0;
+            copterSession->video = 0;
             break;
 
         case COPTER_EMERGENCY:
-            session[copterid-1]->throttle = 0;
-            session[copterid-1]->rudder = 0;
-            session[copterid-1]->aileron = 0;
-            session[copterid-1]->elevator = 0;
-            session[copterid-1]->led = 0;
-            session[copterid-1]->flip = 0;
-            session[copterid-1]->video = 0;
+            copterSession->throttle = 0;
+            copterSession->rudder = 0;
+            copterSession->aileron = 0;
+            copterSession->elevator = 0;
+            copterSession->led = 0;
+            copterSession->flip = 0;
+            copterSession->video = 0;
             break;
 
         case COPTER_DISCONNECT:
+            free(session[copterid-1]->copterSession);
+            free(session[copterid-1]);
             session[copterid-1] = NULL;
             break;
 
@@ -85,15 +91,17 @@ int manager_processcommand(int copterid, int command, int value)
     return PROTOCOL_OK;
 }
 
-void manager_loop(int copterid)
+void manager_loop()
 {
-    if (session[copterid-1] == NULL)
-        return;
-        
-    if (micros() < runat[copterid-1])
-        return;
-        
-    runat[copterid-1] = hubsan_cb(session[copterid-1]);
-    runat[copterid-1] += micros();
+    for (int copterid=1; copterid <= NUM_COPTERS; copterid++) {
+        if (session[copterid-1] != NULL && micros() > session[copterid-1]->nextRunAt) {
+            switch(session[copterid-1]->copterType) {
+                case HUBSAN_X4:
+                    session[copterid-1]->nextRunAt = hubsan_cb((HubsanSession*)session[copterid-1]->copterSession);
+                    session[copterid-1]->nextRunAt += micros();
+                    break;
+            }
+        }
+    }
 }
 

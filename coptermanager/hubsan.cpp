@@ -156,14 +156,14 @@ static int hubsan_init()
     return 1;
 }
 
-static void update_crc(Session *session)
+static void update_crc(HubsanSession *session)
 {
     int sum = 0;
     for(int i = 0; i < 15; i++)
         sum += session->packet[i];
     session->packet[15] = (256 - (sum % 256)) & 0xff;
 }
-static void hubsan_build_bind_packet(Session *session, u8 state)
+static void hubsan_build_bind_packet(HubsanSession *session, u8 state)
 {
     session->packet[0] = state;
     session->packet[1] = session->channel;
@@ -183,7 +183,7 @@ static void hubsan_build_bind_packet(Session *session, u8 state)
     update_crc(session);
 }
 
-static void hubsan_build_packet(Session *session)
+static void hubsan_build_packet(HubsanSession *session)
 {
     static s16 vtx_freq = 0; 
     memset(session->packet, 0, 16);
@@ -230,7 +230,7 @@ static void hubsan_build_packet(Session *session)
     update_crc(session);
 }
 
-static u8 hubsan_check_integrity(Session *session) 
+static u8 hubsan_check_integrity(HubsanSession *session) 
 {
     int sum = 0;
     for(int i = 0; i < 15; i++)
@@ -242,7 +242,7 @@ static void hubsan_update_telemetry()
 {
 }
 
-u16 hubsan_cb(Session *session)
+u16 hubsan_cb(HubsanSession *session)
 {
     static u8 txState = 0;
     static int delay = 0;
@@ -368,10 +368,10 @@ void hubsan_initialize()
     }
 }
   
-Session* hubsan_bind()
+HubsanSession* hubsan_bind()
 {
-    Session *session = (Session*)malloc(sizeof(Session));
-    *session = EmptySession;
+    HubsanSession *session = (HubsanSession*)malloc(sizeof(HubsanSession));
+    memset(session, 0, sizeof(HubsanSession));
     session->sessionid = rand32_r(0, 0);
     session->channel = allowed_ch[rand32_r(0, 0) % sizeof(allowed_ch)];
     PROTOCOL_SetBindState(0xFFFFFFFF);

@@ -36,7 +36,11 @@ struct Model {
     enum TxPower tx_power;
 };
 
-struct Session {
+enum CopterType {
+    HUBSAN_X4 = 0x01
+};
+
+struct HubsanSession {
     u8 packet[16];
     u8 channel;
     u32 sessionid;
@@ -52,7 +56,10 @@ struct Session {
     int video;
 };
 
-static const Session EmptySession = {0};
+struct Session {
+    CopterType copterType;
+    unsigned long nextRunAt;
+    void* copterSession;
+};
 
 #endif
-
