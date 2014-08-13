@@ -59,6 +59,7 @@ struct HubsanSession {
 struct Session {
     CopterType copterType;
     unsigned long nextRunAt;
+    int emergencyFlag;
     void* copterSession;
 };
 

@@ -12,9 +12,8 @@ enum {
     COPTER_LED        = 0x06,
     COPTER_FLIP       = 0x07,
     COPTER_VIDEO      = 0x08,
-    COPTER_LAND       = 0x09,
-    COPTER_EMERGENCY  = 0x0A,
-    COPTER_DISCONNECT = 0x0B
+    COPTER_EMERGENCY  = 0x09,
+    COPTER_DISCONNECT = 0x0A
 };
 
 enum {

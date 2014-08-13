@@ -23,6 +23,7 @@ static int copter_bind(int type)
                     session[i-1] = (Session*)malloc(sizeof(Session));
                     session[i-1]->copterType = HUBSAN_X4;
                     session[i-1]->nextRunAt = 0;
+                    session[i-1]->emergencyFlag = 0;
                     session[i-1]->copterSession = hubsan_bind();
                     break;
                     
@@ -41,6 +42,10 @@ int manager_processcommand(int copterid, int command, int value)
 {
     if (copterid < 1 || copterid > NUM_COPTERS || session[copterid-1] == NULL)
         return PROTOCOL_ERROR;
+
+    // if emergency flag is set only allow disconnect command
+    if (session[copterid-1]->emergencyFlag == 1 && command != COPTER_DISCONNECT)
+        return PROTOCOL_ERROR;
     
     // TODO: other copter types
     HubsanSession *copterSession = (HubsanSession*)session[copterid-1]->copterSession;
@@ -57,18 +62,8 @@ int manager_processcommand(int copterid, int command, int value)
         case COPTER_FLIP: copterSession->flip = value; break;
         case COPTER_VIDEO: copterSession->video = value; break;
         
-        case COPTER_LAND:
-            // TODO: smooth landing
-            copterSession->throttle = 0;
-            copterSession->rudder = 0;
-            copterSession->aileron = 0;
-            copterSession->elevator = 0;
-            copterSession->led = 0;
-            copterSession->flip = 0;
-            copterSession->video = 0;
-            break;
-
         case COPTER_EMERGENCY:
+            session[copterid-1]->emergencyFlag = 1;
             copterSession->throttle = 0;
             copterSession->rudder = 0;
             copterSession->aileron = 0;
