@@ -3,7 +3,7 @@
 
 #define NUM_COPTERS 2
 
-enum {
+enum Command {
     COPTER_BIND       = 0x01,
     COPTER_THROTTLE   = 0x02,
     COPTER_RUDDER     = 0x03,
@@ -16,7 +16,7 @@ enum {
     COPTER_DISCONNECT = 0x0A
 };
 
-enum {
+enum ResultCode {
     PROTOCOL_OK = 0x00,
     PROTOCOL_INVALID_COPTER_TYPE = 0xF0,
     PROTOCOL_ALL_SLOTS_FULL = 0xF1,
