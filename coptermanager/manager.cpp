@@ -9,9 +9,9 @@ static Session* session[NUM_COPTERS] = {NULL};
 
 void manager_init()
 {
-    Serial.begin(115200);
-    A7105_Setup(); //A7105_Reset();
-    hubsan_initialize();
+    Serial.begin(9600);
+    //A7105_Setup(); //A7105_Reset();
+    //hubsan_initialize();
 }
 
 static int copter_bind(int type)
@@ -28,27 +28,31 @@ static int copter_bind(int type)
                     break;
                     
                 default:
-                    return PROTOCOL_ERROR;
+                    return PROTOCOL_INVALID_COPTER_TYPE;
             }
             return i;
         }
     }
     
-    return PROTOCOL_ERROR;
+    return PROTOCOL_ALL_SLOTS_FULL;
 }
 
 // copterid: 1..NUM_COPTERS
 int manager_processcommand(int copterid, int command, int value)
 {
-    if (copterid < 1 || copterid > NUM_COPTERS || session[copterid-1] == NULL)
-        return PROTOCOL_ERROR;
-
-    // if emergency flag is set only allow disconnect command
-    if (session[copterid-1]->emergencyFlag == 1 && command != COPTER_DISCONNECT)
-        return PROTOCOL_ERROR;
-    
     // TODO: other copter types
-    HubsanSession *copterSession = (HubsanSession*)session[copterid-1]->copterSession;
+    HubsanSession *copterSession = NULL;
+    
+    if (command != COPTER_BIND) {
+        if (copterid < 1 || copterid > NUM_COPTERS || session[copterid-1] == NULL)
+            return PROTOCOL_INVALID_SLOT;
+
+        // if emergency flag is set only allow disconnect command
+        if (session[copterid-1]->emergencyFlag == 1 && command != COPTER_DISCONNECT)
+            return PROTOCOL_EMERGENCY_MODE_ON;
+            
+        copterSession = (HubsanSession*)session[copterid-1]->copterSession;
+    }
     
     switch(command) {
         case COPTER_BIND:
@@ -80,7 +84,7 @@ int manager_processcommand(int copterid, int command, int value)
             break;
 
         default:
-            return PROTOCOL_ERROR;
+            return PROTOCOL_UNKNOWN_COMMAND;
     }
     
     return PROTOCOL_OK;
