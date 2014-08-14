@@ -12,7 +12,6 @@ void setup()
     
     DEBUG_MSG("setup done");
 }
-#define SERIAL_ASCII
 
 void loop()
 {
@@ -31,7 +30,6 @@ void loop()
         
         DEBUG_MSG("read values "+String(copterid)+" "+String(command)+" "+String(value));
         int result_code = manager_processcommand(copterid, command, value);
-        
         
         #ifdef SERIAL_ASCII
             Serial.println("command result "+String(result_code, HEX));
