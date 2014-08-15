@@ -4,14 +4,18 @@
 
 void setup()
 {
-    manager_init();
     pinMode(13, OUTPUT);
+    digitalWrite(13, LOW);
+    manager_init();
+    delay(500);
     digitalWrite(13, HIGH);
-    delay(200);
+    delay(500);
     digitalWrite(13, LOW);
     
     DEBUG_MSG("setup done");
 }
+
+#define SERIAL_ASCII
 
 void loop()
 {

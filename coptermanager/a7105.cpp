@@ -39,7 +39,7 @@ void A7105_Setup() {
     // SPI.setClockDivider(10);
     SPI.setBitOrder(MSBFIRST);
     // set gpio1 to SDO (MISO) by writing to reg GIO1S
-    // A7105_WriteReg(0x0b,0x06); // 0b0110
+     A7105_WriteReg(0x0b,0x19); // 0b0110
 }
 
 void A7105_WriteReg(u8 address, u8 data)
@@ -109,8 +109,11 @@ void A7105_SetTxRxMode(enum TXRX_State mode)
 int A7105_Reset()
 {
     A7105_WriteReg(0x00, 0x00);
+    
     usleep(1000);
     //Set both GPIO as output and low
+    A7105_WriteReg(0x0b,0x19); // 0b011001
+    
     A7105_SetTxRxMode(TXRX_OFF);
     int result = A7105_ReadReg(0x10) == 0x9E;
     A7105_Strobe(A7105_STANDBY);

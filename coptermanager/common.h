@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+#define DEBUG
+
 #ifdef DEBUG
   #define DEBUG_MSG(x)  Serial.println (x)
 #else

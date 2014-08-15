@@ -93,8 +93,10 @@ static int hubsan_init()
         if(! A7105_ReadReg(0x02))
             break;
     }
-    if (CLOCK_getms() - ms >= 500)
+    if (CLOCK_getms() - ms >= 500) {
+      DEBUG_MSG("calib fail2");
         return 0;
+    }
     if_calibration1 = A7105_ReadReg(A7105_22_IF_CALIB_I);
     A7105_ReadReg(A7105_24_VCO_CURCAL);
     if(if_calibration1 & A7105_MASK_FBCF) {
@@ -119,8 +121,10 @@ static int hubsan_init()
         if(! A7105_ReadReg(0x02))
             break;
     }
-    if (CLOCK_getms() - ms >= 500)
+    if (CLOCK_getms() - ms >= 500) {
+      DEBUG_MSG("calib fail");
         return 0;
+    }
     vco_calibration0 = A7105_ReadReg(A7105_25_VCO_SBCAL_I);
     if (vco_calibration0 & A7105_MASK_VBCF) {
         //Calibration failed...what do we do?
@@ -363,6 +367,7 @@ void hubsan_initialize()
     while(1) {
         A7105_Reset();
         CLOCK_ResetWatchdog();
+        DEBUG_MSG("init");
         if (hubsan_init())
             break;
     }

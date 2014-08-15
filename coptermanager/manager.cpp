@@ -11,8 +11,10 @@ void manager_init()
 {
     Serial.begin(115200);
     while (!Serial);
-    //A7105_Setup(); //A7105_Reset();
-    //hubsan_initialize();
+    A7105_Setup(); //A7105_Reset();
+    DEBUG_MSG("hubs init");
+    hubsan_initialize();
+    DEBUG_MSG("hubs done");
 }
 
 static int copter_bind(int type)
