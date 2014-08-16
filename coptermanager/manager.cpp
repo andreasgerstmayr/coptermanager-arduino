@@ -3,6 +3,7 @@
 #include "common.h"
 #include "a7105.h"
 #include "hubsan.h"
+#include "session.h"
 
 static Session* session[NUM_COPTERS] = {NULL};
 
@@ -105,4 +106,3 @@ void manager_loop()
         }
     }
 }
-

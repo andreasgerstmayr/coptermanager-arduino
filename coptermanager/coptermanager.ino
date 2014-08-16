@@ -1,6 +1,7 @@
+// some .ino file must include the SPI library, otherwise it's not available inside a7105.cpp
 #include <SPI.h>
-#include "manager.h"
 #include "common.h"
+#include "manager.h"
 
 void setup()
 {
@@ -12,8 +13,6 @@ void setup()
     delay(500);
     digitalWrite(13, LOW);
 }
-
-#define SERIAL_ASCII
 
 void loop()
 {
@@ -30,11 +29,11 @@ void loop()
             int value = Serial.read();
         #endif
         
-        DEBUG_MSG("read values "+String(copterid)+" "+String(command)+" "+String(value));
+        DEBUG_MSG("read values " + String(copterid) + " " + String(command) + " " + String(value));
         int result_code = manager_processcommand(copterid, command, value);
         
         #ifdef SERIAL_ASCII
-            Serial.println("command result "+String(result_code, HEX));
+            Serial.println("command result " + String(result_code, HEX));
         #else
             Serial.write(result_code);
         #endif

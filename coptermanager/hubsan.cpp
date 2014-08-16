@@ -14,6 +14,7 @@
  */
 
 #include <Arduino.h>
+#include "hubsan.h"
 #include "common.h"
 #include "macros.h"
 #include "a7105.h"
@@ -393,4 +394,3 @@ HubsanSession* hubsan_bind()
     CLOCK_StartTimer(10000, hubsan_cb);
     return session;
 }
-

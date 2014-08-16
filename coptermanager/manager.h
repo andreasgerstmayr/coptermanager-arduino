@@ -1,7 +1,9 @@
 #ifndef MANAGER_H
 #define MANAGER_H
 
-#define NUM_COPTERS 2
+enum CopterType {
+    HUBSAN_X4 = 0x01
+};
 
 enum Command {
     COPTER_BIND       = 0x01,
@@ -30,4 +32,3 @@ int manager_processcommand(int copterid, int command, int value);
 void manager_loop();
 
 #endif
-

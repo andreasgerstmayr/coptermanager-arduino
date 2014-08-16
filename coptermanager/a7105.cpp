@@ -15,11 +15,8 @@
 
 #include <Arduino.h>
 #include <SPI.h>
-#include "common.h"
-#include "macros.h"
 #include "a7105.h"
-
-#define CS_PIN 10
+#include "macros.h"
 
 #define PROTOSPI_xfer(x) SPI.transfer(x)
 #define PROTOSPI_read3wire() SPI.transfer(0)
@@ -150,4 +147,3 @@ void A7105_Strobe(enum A7105_State state)
     PROTOSPI_xfer(state);
     CS_HI();
 }
-

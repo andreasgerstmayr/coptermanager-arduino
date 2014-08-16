@@ -13,7 +13,7 @@
  along with Deviation.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "common.h"
+#include "protocol.h"
 #include "macros.h"
 
 #define PROTOCOL_SticksMoved(x) (void)0
@@ -38,4 +38,3 @@ void PROTOCOL_SetBindState(u32 msec)
         proto_state &= ~PROTO_BINDING;
     }
 }
-
