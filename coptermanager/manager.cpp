@@ -100,7 +100,7 @@ void manager_loop()
             switch(session[copterid-1]->copterType) {
                 case HUBSAN_X4:
                     int waitTime = hubsan_cb((HubsanSession*)session[copterid-1]->copterSession);
-                    session[copterid-1]->nextRunAt += micros() + waitTime;
+                    session[copterid-1]->nextRunAt = micros() + waitTime;
                     break;
             }
         }
