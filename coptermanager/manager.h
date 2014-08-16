@@ -6,24 +6,25 @@ enum CopterType {
 };
 
 enum Command {
-    COPTER_BIND       = 0x01,
-    COPTER_THROTTLE   = 0x02,
-    COPTER_RUDDER     = 0x03,
-    COPTER_AILERON    = 0x04,
-    COPTER_ELEVATOR   = 0x05,
-    COPTER_LED        = 0x06,
-    COPTER_FLIP       = 0x07,
-    COPTER_VIDEO      = 0x08,
-    COPTER_GETSTATE   = 0x09,
-    COPTER_EMERGENCY  = 0x0A,
-    COPTER_DISCONNECT = 0x0B
+    COPTER_BIND        = 0x01,
+    COPTER_THROTTLE    = 0x02,
+    COPTER_RUDDER      = 0x03,
+    COPTER_AILERON     = 0x04,
+    COPTER_ELEVATOR    = 0x05,
+    COPTER_LED         = 0x06,
+    COPTER_FLIP        = 0x07,
+    COPTER_VIDEO       = 0x08,
+    COPTER_GETSTATE    = 0x09,
+    COPTER_EMERGENCY   = 0x0A,
+    COPTER_DISCONNECT  = 0x0B,
+    COPTER_LISTCOPTERS = 0x0C
 };
 
 enum ResultCode {
     PROTOCOL_OK = 0x00,
     
-    PROTOCOL_ISBINDING = 0xE0,
-    PROTOCOL_ISBOUND = 0xE1,
+    PROTOCOL_UNBOUND = 0xE0,
+    PROTOCOL_BOUND = 0xE1,
     
     PROTOCOL_INVALID_COPTER_TYPE = 0xF0,
     PROTOCOL_ALL_SLOTS_FULL = 0xF1,

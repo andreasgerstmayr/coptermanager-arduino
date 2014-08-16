@@ -5,7 +5,7 @@
 #include "hubsan.h"
 #include "session.h"
 
-static Session* session[NUM_COPTERS] = {NULL};
+static Session* sessions[NUM_COPTERS] = {NULL};
 
 
 void manager_init()
@@ -20,14 +20,18 @@ void manager_init()
 static int copter_bind(int type)
 {
     for (int i=1; i <= NUM_COPTERS; i++) {
-        if (session[i-1] == NULL) {
+        if (sessions[i-1] == NULL) {
             switch(type) {
-                case HUBSAN_X4:
-                    session[i-1] = (Session*)malloc(sizeof(Session));
-                    session[i-1]->copterType = HUBSAN_X4;
-                    session[i-1]->nextRunAt = 0;
-                    session[i-1]->emergencyFlag = 0;
-                    session[i-1]->copterSession = hubsan_bind();
+                case HUBSAN_X4: {
+                    Session* session = (Session*)malloc(sizeof(Session));
+                    session->copterType = HUBSAN_X4;
+                    session->nextRunAt = 0;
+                    session->initTime = millis();
+                    session->bindTime = 0;
+                    session->emergencyFlag = 0;
+                    session->copterSession = hubsan_bind();
+                    sessions[i-1] = session;
+                }
                     break;
                     
                 default:
@@ -42,12 +46,12 @@ static int copter_bind(int type)
 
 int manager_process_hubsan_command(Session *session, int command, int value)
 {
-    HubsanSession *copterSession = (HubsanSession*)session->copterSession;
+    HubsanSession *hubsanSession = (HubsanSession*)session->copterSession;
     
     switch(command) {
         case COPTER_THROTTLE:
             if (value >= 0x00 && value <= 0xFF) {
-               copterSession->throttle = value;
+               hubsanSession->throttle = value;
                return PROTOCOL_OK;
             }
             else {
@@ -56,7 +60,7 @@ int manager_process_hubsan_command(Session *session, int command, int value)
             
         case COPTER_RUDDER:
             if (value >= 0x34 && value <= 0xCC) {
-               copterSession->rudder = value;
+               hubsanSession->rudder = value;
                return PROTOCOL_OK;
             }
             else {
@@ -65,7 +69,7 @@ int manager_process_hubsan_command(Session *session, int command, int value)
 
         case COPTER_AILERON: 
             if (value >= 0x45 && value <= 0xC3) {
-               copterSession->aileron = value;
+               hubsanSession->aileron = value;
                return PROTOCOL_OK;
             }
             else {
@@ -74,7 +78,7 @@ int manager_process_hubsan_command(Session *session, int command, int value)
             
         case COPTER_ELEVATOR: 
             if (value >= 0x3e && value <= 0xBC) {
-               copterSession->elevator = value;
+               hubsanSession->elevator = value;
                return PROTOCOL_OK;
             }
             else {
@@ -83,7 +87,7 @@ int manager_process_hubsan_command(Session *session, int command, int value)
             
         case COPTER_LED: 
             if (value >= 0x00 && value <= 0x01) {
-               copterSession->led = value;
+               hubsanSession->led = value;
                return PROTOCOL_OK;
             }
             else {
@@ -92,7 +96,7 @@ int manager_process_hubsan_command(Session *session, int command, int value)
             
         case COPTER_FLIP:
             if (value >= 0x00 && value <= 0x01) {
-               copterSession->flip = value;
+               hubsanSession->flip = value;
                return PROTOCOL_OK;
             }
             else {
@@ -101,7 +105,7 @@ int manager_process_hubsan_command(Session *session, int command, int value)
             
         case COPTER_VIDEO:
             if (value >= 0x00 && value <= 0x01) {
-               copterSession->video = value;
+               hubsanSession->video = value;
                return PROTOCOL_OK;
             }
             else {
@@ -109,16 +113,16 @@ int manager_process_hubsan_command(Session *session, int command, int value)
             }
         
         case COPTER_GETSTATE:
-            return hubsan_get_binding_state(copterSession) ? PROTOCOL_ISBOUND : PROTOCOL_ISBINDING;
+            return hubsan_get_binding_state(hubsanSession) ? PROTOCOL_BOUND : PROTOCOL_UNBOUND;
         
         case COPTER_EMERGENCY:
-            copterSession->throttle = 0;
-            copterSession->rudder = 0;
-            copterSession->aileron = 0;
-            copterSession->elevator = 0;
-            copterSession->led = 0;
-            copterSession->flip = 0;
-            copterSession->video = 0;
+            hubsanSession->throttle = 0;
+            hubsanSession->rudder = 0;
+            hubsanSession->aileron = 0;
+            hubsanSession->elevator = 0;
+            hubsanSession->led = 0;
+            hubsanSession->flip = 0;
+            hubsanSession->video = 0;
             return PROTOCOL_OK;
 
         case COPTER_DISCONNECT:
@@ -135,47 +139,84 @@ int manager_processcommand(int copterid, int command, int value)
     if (command == COPTER_BIND) {
         return copter_bind(value);
     }
+    else if (command == COPTER_LISTCOPTERS) {
+        int bitmask = 0;
+        for (int copterid=1; copterid <= NUM_COPTERS; copterid++) {
+            if (sessions[copterid-1] != NULL)
+                bitmask |= 1 << (copterid-1);
+        }
+        return bitmask;
+    }
     else {
-        if (copterid < 1 || copterid > NUM_COPTERS || session[copterid-1] == NULL)
+        if (copterid < 1 || copterid > NUM_COPTERS || sessions[copterid-1] == NULL)
             return PROTOCOL_INVALID_SLOT;
+            
+        Session *session = sessions[copterid-1];
 
         // if emergency flag is set only allow disconnect command
-        if (session[copterid-1]->emergencyFlag == 1 && command != COPTER_DISCONNECT)
+        if (session->emergencyFlag == 1 && command != COPTER_DISCONNECT)
             return PROTOCOL_EMERGENCY_MODE_ON;
         
         int resultCode = PROTOCOL_OK;
-        switch(session[copterid-1]->copterType) {
+        switch(session->copterType) {
             case HUBSAN_X4:
-               resultCode = manager_process_hubsan_command(session[copterid-1], command, value);
+               resultCode = manager_process_hubsan_command(session, command, value);
                break;
                
             default:
                return PROTOCOL_INVALID_COPTER_TYPE;
         }
-               
+        
         if (command == COPTER_EMERGENCY) {
-            session[copterid-1]->emergencyFlag = 1;
+            session->emergencyFlag = 1;
         }
         else if (resultCode == PROTOCOL_OK && command == COPTER_DISCONNECT) {
-            free(session[copterid-1]->copterSession);
-            free(session[copterid-1]);
-            session[copterid-1] = NULL;
+            free(session->copterSession);
+            free(session);
+            sessions[copterid-1] = NULL;
         }
         
         return resultCode;
     }
 }
 
+inline void manager_copterloop(int copterid)
+{
+    Session* session = sessions[copterid-1];
+    
+    if (session->bindTime == 0) {
+        if ((millis() - session->initTime) > MAX_UNBOUND_TIME) {
+            DEBUG_MSG("removing inactive copter " + String(copterid) + " (max unbound time reached)");
+            manager_processcommand(copterid, COPTER_DISCONNECT, 0);
+            return;
+        }
+    }
+    else {
+        if ((millis() - session->bindTime) > MAX_BOUND_TIME) {
+            DEBUG_MSG("removing inactive copter " + String(copterid) + " (max bound time reached)");
+            manager_processcommand(copterid, COPTER_DISCONNECT, 0);
+            return;
+        }
+    }
+    
+    if (micros() > session->nextRunAt) {
+        switch(session->copterType) {
+            case HUBSAN_X4:
+                HubsanSession *hubsanSession = (HubsanSession*)session->copterSession;
+                int is_bound = hubsan_get_binding_state(hubsanSession);
+                int waitTime = hubsan_cb(hubsanSession);
+                session->nextRunAt = micros() + waitTime;
+                if (!is_bound && hubsan_get_binding_state(hubsanSession))
+                    session->bindTime = millis();
+                break;
+        }
+    }       
+}
+
 void manager_loop()
 {
     for (int copterid=1; copterid <= NUM_COPTERS; copterid++) {
-        if (session[copterid-1] != NULL && micros() > session[copterid-1]->nextRunAt) {
-            switch(session[copterid-1]->copterType) {
-                case HUBSAN_X4:
-                    int waitTime = hubsan_cb((HubsanSession*)session[copterid-1]->copterSession);
-                    session[copterid-1]->nextRunAt = micros() + waitTime;
-                    break;
-            }
-        }
+        if (sessions[copterid-1] != NULL)
+            manager_copterloop(copterid);
     }
 }

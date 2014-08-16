@@ -22,7 +22,9 @@ struct HubsanSession {
 
 struct Session {
     CopterType copterType;
-    unsigned long nextRunAt;
+    unsigned long nextRunAt; // us
+    unsigned long initTime; // ms
+    unsigned long bindTime; // ms
     int emergencyFlag;
     void* copterSession;
 };
