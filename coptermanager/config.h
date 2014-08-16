@@ -13,7 +13,7 @@
 // max time of bound state in ms (should be greater than akku capacity)
 #define MAX_BOUND_TIME 1000*60*10
 
-#define DEBUG
-#define SERIAL_ASCII
+//#define DEBUG
+//#define SERIAL_ASCII
 
 #endif

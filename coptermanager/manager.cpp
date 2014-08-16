@@ -119,10 +119,10 @@ int manager_process_hubsan_command(Session *session, int command, int value)
         
         case COPTER_EMERGENCY:
             hubsanSession->throttle = 0;
-            hubsanSession->rudder = 0;
-            hubsanSession->aileron = 0;
-            hubsanSession->elevator = 0;
-            hubsanSession->led = 0;
+            hubsanSession->rudder = 0x7F;
+            hubsanSession->aileron = 0x7F;
+            hubsanSession->elevator = 0x7F;
+            hubsanSession->led = 1;
             hubsanSession->flip = 0;
             hubsanSession->video = 0;
             return PROTOCOL_OK;
