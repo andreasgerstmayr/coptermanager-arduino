@@ -31,7 +31,15 @@ static int copter_bind(int type)
                     session->emergencyFlag = 0;
                     
                     hubsan_initialize();
-                    session->copterSession = hubsan_bind();
+                    HubsanSession *hubsanSession = hubsan_bind();
+                    // timing is very important in binding phase, so here is a dedicated loop until binding is finished
+                    while (!hubsan_get_binding_state(hubsanSession) && millis() - session->initTime < 500) {
+                        int waitTime = hubsan_cb(hubsanSession);
+                        delayMicroseconds(waitTime);
+                    }
+                    DEBUG_MSG("bound: "+String(hubsan_get_binding_state(hubsanSession))+", time: "+String(millis() - session->initTime)+"ms");
+                    
+                    session->copterSession = hubsanSession;
                     sessions[i-1] = session;
                 }
                     break;
