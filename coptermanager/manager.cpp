@@ -29,6 +29,8 @@ static int copter_bind(int type)
                     session->initTime = millis();
                     session->bindTime = 0;
                     session->emergencyFlag = 0;
+                    
+                    hubsan_initialize();
                     session->copterSession = hubsan_bind();
                     sessions[i-1] = session;
                 }
@@ -136,6 +138,13 @@ int manager_process_hubsan_command(Session *session, int command, int value)
 // copterid: 1..NUM_COPTERS
 int manager_processcommand(int copterid, int command, int value)
 {
+    #ifdef DEBUG
+    if (command == 0xFF) {
+        // 300-400 ms bind time
+        DEBUG_MSG("int time: "+String(sessions[copterid-1]->initTime)+", bind time: "+String(sessions[copterid-1]->bindTime));
+    }
+    #endif
+    
     if (command == COPTER_BIND) {
         return copter_bind(value);
     }

@@ -8,10 +8,10 @@
 #define NUM_COPTERS 8
 
 // max time of unbound state in ms
-#define MAX_UNBOUND_TIME 1000*30
+#define MAX_UNBOUND_TIME 1000*60
 
 // max time of bound state in ms (should be greater than akku capacity)
-#define MAX_BOUND_TIME 1000*60*8
+#define MAX_BOUND_TIME 1000*60*10
 
 #define DEBUG
 #define SERIAL_ASCII
