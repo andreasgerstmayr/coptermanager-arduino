@@ -12,9 +12,8 @@ void manager_init()
     Serial.begin(115200);
     while (!Serial);
     A7105_Setup(); //A7105_Reset();
-    DEBUG_MSG("hubs init");
     hubsan_initialize();
-    DEBUG_MSG("hubs done");
+    DEBUG_MSG("initialization successful");
 }
 
 static int copter_bind(int type)
@@ -99,8 +98,8 @@ void manager_loop()
         if (session[copterid-1] != NULL && micros() > session[copterid-1]->nextRunAt) {
             switch(session[copterid-1]->copterType) {
                 case HUBSAN_X4:
-                    session[copterid-1]->nextRunAt = hubsan_cb((HubsanSession*)session[copterid-1]->copterSession);
-                    session[copterid-1]->nextRunAt += micros();
+                    int waitTime = hubsan_cb((HubsanSession*)session[copterid-1]->copterSession);
+                    session[copterid-1]->nextRunAt += micros() + waitTime;
                     break;
             }
         }

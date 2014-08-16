@@ -94,7 +94,7 @@ static int hubsan_init()
             break;
     }
     if (CLOCK_getms() - ms >= 500) {
-      DEBUG_MSG("calib fail2");
+        DEBUG_MSG("calibration failed");
         return 0;
     }
     if_calibration1 = A7105_ReadReg(A7105_22_IF_CALIB_I);
@@ -122,7 +122,6 @@ static int hubsan_init()
             break;
     }
     if (CLOCK_getms() - ms >= 500) {
-      DEBUG_MSG("calib fail");
         return 0;
     }
     vco_calibration0 = A7105_ReadReg(A7105_25_VCO_SBCAL_I);
@@ -367,7 +366,7 @@ void hubsan_initialize()
     while(1) {
         A7105_Reset();
         CLOCK_ResetWatchdog();
-        DEBUG_MSG("init");
+        DEBUG_MSG("hubsan_init()");
         if (hubsan_init())
             break;
     }
@@ -377,6 +376,11 @@ HubsanSession* hubsan_bind()
 {
     HubsanSession *session = (HubsanSession*)malloc(sizeof(HubsanSession));
     memset(session, 0, sizeof(HubsanSession));
+    
+    // hubsan default values
+    session->rudder = session->aileron = session->elevator = 0x7F;
+    session->led = 1;
+    
     session->sessionid = rand32_r(0, 0);
     session->channel = allowed_ch[rand32_r(0, 0) % sizeof(allowed_ch)];
     PROTOCOL_SetBindState(0xFFFFFFFF);

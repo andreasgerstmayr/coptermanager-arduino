@@ -11,8 +11,6 @@ void setup()
     digitalWrite(13, HIGH);
     delay(500);
     digitalWrite(13, LOW);
-    
-    DEBUG_MSG("setup done");
 }
 
 #define SERIAL_ASCII
@@ -42,5 +40,5 @@ void loop()
         #endif
     }
     
-    //manager_loop();
+    manager_loop();
 }

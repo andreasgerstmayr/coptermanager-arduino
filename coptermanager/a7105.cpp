@@ -38,8 +38,9 @@ void A7105_Setup() {
     SPI.setDataMode(SPI_MODE0);
     // SPI.setClockDivider(10);
     SPI.setBitOrder(MSBFIRST);
+    
     // set gpio1 to SDO (MISO) by writing to reg GIO1S
-     A7105_WriteReg(0x0b,0x19); // 0b0110
+    A7105_WriteReg(A7105_0B_GPIO1_PIN1, 0x19); // 0b0110
 }
 
 void A7105_WriteReg(u8 address, u8 data)
@@ -86,40 +87,24 @@ void A7105_ReadData(u8 *dpbuffer, u8 len)
 }
 
 /*
- * 1 - Tx else Rx
+ * we use 4 wire SPI mode (gio1 as output pin)
  */
 void A7105_SetTxRxMode(enum TXRX_State mode)
 {
-    if(mode == TX_EN) {
-        A7105_WriteReg(A7105_0B_GPIO1_PIN1, 0x33);
-        A7105_WriteReg(A7105_0C_GPIO2_PIN_II, 0x31);
-    } else if (mode == RX_EN) {
-        A7105_WriteReg(A7105_0B_GPIO1_PIN1, 0x31);
-        A7105_WriteReg(A7105_0C_GPIO2_PIN_II, 0x33);
-    } else {
-        //The A7105 seems to some with a cross-wired power-amp (A7700)
-        //On the XL7105-D03, TX_EN -> RXSW and RX_EN -> TXSW
-        //This means that sleep mode is wired as RX_EN = 1 and TX_EN = 1
-        //If there are other amps in use, we'll need to fix this
-        A7105_WriteReg(A7105_0B_GPIO1_PIN1, 0x33);
-        A7105_WriteReg(A7105_0C_GPIO2_PIN_II, 0x33);
-    }
 }
 
 int A7105_Reset()
 {
     A7105_WriteReg(0x00, 0x00);
-    
     usleep(1000);
-    //Set both GPIO as output and low
-    A7105_WriteReg(0x0b,0x19); // 0b011001
-    
+    // set gpio1 to SDO (MISO) by writing to reg GIO1S
+    A7105_WriteReg(A7105_0B_GPIO1_PIN1, 0x19); // 0b0110    
     A7105_SetTxRxMode(TXRX_OFF);
     int result = A7105_ReadReg(0x10) == 0x9E;
     A7105_Strobe(A7105_STANDBY);
     return result;
-    
 }
+
 void A7105_WriteID(u32 id)
 {
     CS_LO();
