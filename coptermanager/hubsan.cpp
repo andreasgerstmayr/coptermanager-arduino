@@ -394,3 +394,7 @@ HubsanSession* hubsan_bind()
     CLOCK_StartTimer(10000, hubsan_cb);
     return session;
 }
+
+int hubsan_get_binding_state(HubsanSession *session) {
+    return session->state >= DATA_1 && session->state <= DATA_5;
+}

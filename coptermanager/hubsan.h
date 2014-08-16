@@ -6,5 +6,6 @@
 void hubsan_initialize();
 HubsanSession* hubsan_bind();
 u16 hubsan_cb(HubsanSession* session);
+int hubsan_get_binding_state(HubsanSession* session);
 
 #endif
