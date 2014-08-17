@@ -20,8 +20,13 @@ It is also possible to talk directly from the client to the arduino board. The J
 
 ## Setup instructions
 
-1. Follow the instructions to build the transmitter station: http://www.instructables.com/id/Easy-Android-controllable-PC-Interfaceable-Relati/step5/Building-the-Arduino-driven-radio/
-2. Open the source code of this project and send it to your arduino board.
+1. Follow the [instructions to build the transmitter station](http://www.instructables.com/id/Easy-Android-controllable-PC-Interfaceable-Relati/step5/Building-the-Arduino-driven-radio/) with a small modification:
+  * instead of 3 wire SPI use 4 wire SPI:
+  * skip step 10 "Put an additional wire from the 'SDIO' pin of the A7105 to the 'MISO' pin of the due."
+  * **instead wire 'gio1' of the A7105 chip to the 'MISO' port of the arduino due**
+  * test some resistor values (as written in the tutorial) - mine didn't work with 22K Ohm, but it works with 10K Ohm
+
+2. Open the source code of this project and send it to your arduino board
 
 ## Documentation
 
