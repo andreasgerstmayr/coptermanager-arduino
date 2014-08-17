@@ -4,7 +4,10 @@
 // SPI CS PIN
 #define CS_PIN 10
 
-// number of copter slots, max. 8 (otherwise COPTER_LISTCOPTERS command doesn't work)
+// serial port baudrate
+#define BAUDRATE 115200
+
+// number of copter slots, max. 8 (otherwise COPTER_LISTCOPTERS command won't work)
 #define NUM_COPTERS 8
 
 // max time of unbound state in ms

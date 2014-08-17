@@ -10,7 +10,7 @@ static Session* sessions[NUM_COPTERS] = {NULL};
 
 void manager_init()
 {
-    Serial.begin(115200);
+    Serial.begin(BAUDRATE);
     while (!Serial);
     A7105_Setup(); //A7105_Reset();
     hubsan_initialize();
