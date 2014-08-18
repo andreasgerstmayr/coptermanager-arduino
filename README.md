@@ -28,6 +28,12 @@ It is also possible to talk directly from the client to the arduino board. The J
 
 2. Open the source code of this project and send it to your arduino board
 
+### Pictures
+
+![](http://andihit.github.io/coptermanager-arduino/images/board1.jpg)
+![](http://andihit.github.io/coptermanager-arduino/images/board2.jpg)
+(Note: the floppy cable isn't required - I didn't have any male-to-female cables for the SPI port of the arduino due so I had to improvise...)
+
 ## Documentation
 
 ### Protocol
