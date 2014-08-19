@@ -4,12 +4,21 @@
 #include "common.h"
 #include "manager.h"
 
+enum {
+    doTx, 
+    waitTx, 
+    pollRx
+};
+
 struct HubsanSession {
     u8 packet[16];
     u8 channel;
     u32 sessionid;
     u8 state;
     u8 packet_count;
+    // telemetry
+    uint8_t telemetryState = doTx;
+    uint8_t polls;
 
     u8 throttle; // ascend/descend, observed range: 0x00 - 0xff (smaller is down)
     u8 rudder; // rotate left/right, observed range: 0x34 - 0xcc (smaller is right)
@@ -18,6 +27,12 @@ struct HubsanSession {
     int led;
     int flip;
     int video;
+    
+    int16_t estAltitude;
+    uint8_t batteryVolts = 0xFF;
+    int16_t gyroData[3] = {0};
+    int16_t accData[3] = {0};
+    int16_t angle[3] = {0};
 };
 
 struct Session {

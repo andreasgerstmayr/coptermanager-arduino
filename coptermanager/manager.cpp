@@ -37,6 +37,8 @@ static int copter_bind(int type)
                         int waitTime = hubsan_cb(hubsanSession);
                         delayMicroseconds(waitTime);
                     }
+                    if (hubsan_get_binding_state(hubsanSession))
+                        session->bindTime = millis();
                     DEBUG_MSG("bound: "+String(hubsan_get_binding_state(hubsanSession))+", time: "+String(millis() - session->initTime)+"ms");
                     
                     session->copterSession = hubsanSession;

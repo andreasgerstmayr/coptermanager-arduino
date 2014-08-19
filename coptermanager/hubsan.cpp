@@ -18,7 +18,6 @@
 #include "common.h"
 #include "macros.h"
 #include "a7105.h"
-#include "protocol.h"
 
 static struct Model Model = {
     {0, 0, 0, 0},
@@ -167,6 +166,7 @@ static void update_crc(HubsanSession *session)
         sum += session->packet[i];
     session->packet[15] = (256 - (sum % 256)) & 0xff;
 }
+
 static void hubsan_build_bind_packet(HubsanSession *session, u8 state)
 {
     session->packet[0] = state;
@@ -242,16 +242,118 @@ static u8 hubsan_check_integrity(HubsanSession *session)
     return session->packet[15] == ((256 - (sum % 256)) & 0xff);
 }
 
-static void hubsan_update_telemetry()
+enum Tag0xe0 {
+    TAG, 
+    ROC_MSB,
+    ROC_LSB,
+    XUNK3,
+    XUNK4, 
+    XUNK5,
+    XUNK6,
+    XUNK7,
+    XUNK8, 
+    Z_ACC_MSB, 
+    Z_ACC_LSB, 
+    YAW_GYRO_MSB, 
+    YAW_GYRO_LSB, 
+    VBAT,
+    CRC0,
+    CRC1
+};
+
+enum Tag0xe1 {
+    TAG1, 
+    PITCH_ACC_MSB,
+    PITCH_ACC_LSB,
+    ROLL_ACC_MSB,
+    ROLL_ACC_LSB, 
+    UNK5,
+    UNK6,
+    PITCH_GYRO_MSB, 
+    PITCH_GYRO_LSB, 
+    ROLL_GYRO_MSB, 
+    ROLL_GYRO_LSB, 
+    UNK11,
+    UNK12,  
+    //VBAT,
+    //CRC0,
+    //CRC1
+};
+
+enum rc { // must be in this order
+    ROLL,
+    PITCH,
+    YAW,
+    THROTTLE,
+    AUX1,
+    AUX2,
+    AUX3,
+    AUX4
+};
+
+static void hubsan_update_telemetry(HubsanSession *session)
 {
+    if(hubsan_check_integrity(session)) {
+        switch (session->packet[0]) {
+        case 0xE0:
+            session->estAltitude = -(session->packet[ROC_MSB] << 8 | session->packet[ROC_LSB]);// 1,2
+            //session->debug[0] = session->packet[3] << 8 | session->packet[4];
+            //session->debug[1] = session->packet[5] << 8 | session->packet[6]; 
+            //session->debug[2] = session->packet[7] << 8 | session->packet[8]; 
+            session->accData[YAW] = session->packet[Z_ACC_MSB] << 8 | session->packet[Z_ACC_LSB]; // OK
+            session->gyroData[YAW] = session->packet[YAW_GYRO_MSB] << 8 | session->packet[YAW_GYRO_LSB]; 
+            // batteryVolts = session->packet[VBAT];    // only in 0xe1 Packet! (http://www.deviationtx.com/forum/protocol-development/1848-new-hubsan-upgraded-version-on-the-way?start=340#17668)
+            break;
+        case 0xE1:
+            session->accData[PITCH] = session->packet[PITCH_ACC_MSB] << 8 | session->packet[PITCH_ACC_LSB];  
+            session->accData[ROLL] = session->packet[ROLL_ACC_MSB] << 8 | session->packet[ROLL_ACC_LSB]; 
+
+            session->gyroData[PITCH] = session->packet[PITCH_GYRO_MSB] << 8 | session->packet[PITCH_GYRO_LSB]; 
+            session->gyroData[ROLL] = session->packet[ROLL_GYRO_MSB] << 8 | session->packet[ROLL_GYRO_LSB]; 
+
+            // use acc as angle alias
+            session->angle[PITCH] = session->accData[PITCH];
+            session->angle[ROLL] = -session->accData[ROLL];
+            session->batteryVolts = session->packet[VBAT];
+            break;
+        default:
+            break;
+        }
+        
+        #ifdef DEBUG_TELEMETRY
+            Serial.print ("Telemetry data: ");
+            for(int i=0; i<16;i++) {
+                if (session->packet[i] <= 15)
+                    Serial.print("0");
+                Serial.print(session->packet[i], HEX);
+                Serial.print(" ");
+            }
+            
+            Serial.print ("  Alt: " + String(session->estAltitude));
+            Serial.print (", Battery: " + String(session->batteryVolts));
+            Serial.print (", Gyro:");
+            for(int i=0; i<3; i++) {
+                Serial.print(" "+String(session->gyroData[i]));
+            }
+            Serial.print (", Acc:");
+            for(int i=0; i<3; i++) {
+                Serial.print(" "+String(session->accData[i]));
+            }
+            Serial.print (", Angle:");
+            for(int i=0; i<3; i++) {
+                Serial.print(" "+String(session->angle[i]));
+            }
+            Serial.println();
+        #endif
+    }
+}
+
+inline boolean A7105_busy(void) {
+    return A7105_ReadReg(A7105_00_MODE) & 0x01;
 }
 
 u16 hubsan_cb(HubsanSession *session)
 {
-    static u8 txState = 0;
-    static int delay = 0;
-    static u8 rfMode=0;
-    int i;
     switch(session->state) {
     case BIND_1:
     case BIND_3:
@@ -267,7 +369,7 @@ u16 hubsan_cb(HubsanSession *session)
     case BIND_5 | WAIT_WRITE:
     case BIND_7 | WAIT_WRITE:
         //wait for completion
-        for(i = 0; i< 20; i++) {
+        for(int i = 0; i< 20; i++) {
            if(! (A7105_ReadReg(A7105_00_MODE) & 0x01))
                break;
         }
@@ -302,61 +404,57 @@ u16 hubsan_cb(HubsanSession *session)
         if(session->packet[1] == 9) {
             session->state = DATA_1;
             A7105_WriteReg(A7105_1F_CODE_I, 0x0F);
-            PROTOCOL_SetBindState(0);
+            //PROTOCOL_SetBindState(0);
             return 28000; //35.5msec elapsed since last write
         } else {
             session->state = BIND_7;
             return 15000; //22.5 msec elapsed since last write
         }
     case DATA_1:
+        A7105_SetPower(Model.tx_power); // keep transmit power in sync
     case DATA_2:
     case DATA_3:
     case DATA_4:
     case DATA_5:
-        if( txState == 0) { // send packet
-            rfMode = A7105_TX;
-            if( session->state == DATA_1)
-                A7105_SetPower( Model.tx_power); //Keep transmit power in sync
+        uint16_t d;
+        switch (session->telemetryState) { // Goebish - telemetry is every ~0.1S r 10 Tx packets
+        case doTx:
             hubsan_build_packet(session);
             A7105_Strobe(A7105_STANDBY);
-            A7105_WriteData( session->packet, 16, session->state == DATA_5 ? session->channel + 0x23 : session->channel);
-            if (session->state == DATA_5)
-                session->state = DATA_1;
-            else
-                session->state++;
-            delay=3000;
-        }
-        else {
-            if( Model.proto_opts[PROTOOPTS_TELEMETRY] == TELEM_ON) {
-                if( rfMode == A7105_TX) {// switch to rx mode 3ms after packet sent
-                    for( i=0; i<10; i++)
-                    {
-                        if( !(A7105_ReadReg(A7105_00_MODE) & 0x01)) {// wait for tx completion
-                            A7105_SetTxRxMode(RX_EN);
-                            A7105_Strobe(A7105_RX); 
-                            rfMode = A7105_RX;
-                            break;
-                        }
-                    }
-                }
-                if( rfMode == A7105_RX) { // check for telemetry frame
-                    for( i=0; i<10; i++) {
-                        if( !(A7105_ReadReg(A7105_00_MODE) & 0x01)) { // data received
-                            A7105_ReadData(session->packet, 16);
-                            hubsan_update_telemetry();
-                            A7105_Strobe(A7105_RX);
-                            break;
-                        }
-                    }
-                }
+            A7105_WriteData(session->packet, 16, session->state == DATA_5 ? session->channel + 0x23 : session->channel);
+            d = 3000; // nominal tx time
+            session->telemetryState = waitTx;
+            break;
+        case waitTx: 
+            if(A7105_busy())
+                d = 0;
+            else { // wait for tx completion
+                A7105_Strobe(A7105_RX);
+                session->polls = 0; 
+                session->telemetryState = pollRx;
+                d = 3000; // nominal rx time
+            } 
+            break;
+        case pollRx: // check for telemetry
+            if(A7105_busy()) 
+                d = 1000;
+            else { 
+                A7105_ReadData(session->packet, 16);
+                hubsan_update_telemetry(session);
+                A7105_Strobe(A7105_RX);
+                d = 1000; 
             }
-            delay=1000;
+
+            if (++session->polls >= 7) { // 3ms + 3mS + 4*1ms
+                if (session->state == DATA_5) 
+                    session->state = DATA_1;
+                else 
+                    session->state++;  
+                session->telemetryState = doTx;   
+            }
+            break;
         }
-        if (++txState == 8) { // 3ms + 7*1ms
-            A7105_SetTxRxMode(TX_EN);
-            txState = 0;
-        }
-        return delay;
+        return d;
     }
     return 0;
 }
@@ -381,10 +479,10 @@ HubsanSession* hubsan_bind()
     // hubsan default values
     session->rudder = session->aileron = session->elevator = 0x7F;
     session->led = 1;
-    
+   
     session->sessionid = rand32_r(0, 0);
     session->channel = allowed_ch[rand32_r(0, 0) % sizeof(allowed_ch)];
-    PROTOCOL_SetBindState(0xFFFFFFFF);
+    //PROTOCOL_SetBindState(0xFFFFFFFF);
     session->state = BIND_1;
     session->packet_count=0;
     //memset(&Telemetry, 0, sizeof(Telemetry));

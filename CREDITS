@@ -3,3 +3,4 @@
 * PhracturedBlue for creating the deviation firmware and reverse engineering the hubsan protocol: https://bitbucket.org/PhracturedBlue/deviation
 * shinyshez for the Arduino/A7105 instructions and original code: http://www.instructables.com/id/Easy-Android-controllable-PC-Interfaceable-Relati/
 * Cass May for 4 wire SPI mode instructions and code: https://github.com/cassm/a7105
+* Prof. G.K. Egan (gke) and goebish for decoding telemetry data: https://github.com/gke/TxAdapter_gke & https://github.com/goebish
