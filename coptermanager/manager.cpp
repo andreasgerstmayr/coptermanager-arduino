@@ -6,21 +6,21 @@
 #include "session.h"
 
 static Session* sessions[NUM_COPTERS] = {NULL};
-
+static int active_sessions_count = 0;
 
 void manager_init()
 {
     Serial.begin(BAUDRATE);
     while (!Serial);
-    A7105_Setup(); //A7105_Reset();
+    A7105_Setup();
     hubsan_initialize();
     DEBUG_MSG("initialization successful");
 }
 
 static int copter_bind(int type)
 {
-    for (int i=1; i <= NUM_COPTERS; i++) {
-        if (sessions[i-1] == NULL) {
+    for (int copterid=1; copterid <= NUM_COPTERS; copterid++) {
+        if (sessions[copterid-1] == NULL) {
             switch(type) {
                 case HUBSAN_X4: {
                     Session* session = (Session*)malloc(sizeof(Session));
@@ -29,27 +29,16 @@ static int copter_bind(int type)
                     session->initTime = millis();
                     session->bindTime = 0;
                     session->emergencyFlag = 0;
-                    
-                    hubsan_initialize();
-                    HubsanSession *hubsanSession = hubsan_bind();
-                    // timing is very important in binding phase, so here is a dedicated loop until binding is finished
-                    while (!hubsan_get_binding_state(hubsanSession) && millis() - session->initTime < 500) {
-                        int waitTime = hubsan_cb(hubsanSession);
-                        delayMicroseconds(waitTime);
-                    }
-                    if (hubsan_get_binding_state(hubsanSession))
-                        session->bindTime = millis();
-                    DEBUG_MSG("bound: "+String(hubsan_get_binding_state(hubsanSession))+", time: "+String(millis() - session->initTime)+"ms");
-                    
-                    session->copterSession = hubsanSession;
-                    sessions[i-1] = session;
+                    session->copterSession = hubsan_bind(copterid, sessions, NUM_COPTERS);
+                    active_sessions_count++;
+                    sessions[copterid-1] = session;
                 }
                     break;
                     
                 default:
                     return PROTOCOL_INVALID_COPTER_TYPE;
             }
-            return i;
+            return copterid;
         }
     }
     
@@ -193,6 +182,7 @@ int manager_processcommand(int copterid, int command, int value)
             free(session->copterSession);
             free(session);
             sessions[copterid-1] = NULL;
+            active_sessions_count--;
         }
         
         return resultCode;
@@ -223,7 +213,7 @@ inline void manager_copterloop(int copterid)
             case HUBSAN_X4:
                 HubsanSession *hubsanSession = (HubsanSession*)session->copterSession;
                 int is_bound = hubsan_get_binding_state(hubsanSession);
-                int waitTime = hubsan_cb(hubsanSession);
+                int waitTime = active_sessions_count <= 1 ? hubsan_cb(hubsanSession) : hubsan_multiple_cb(hubsanSession);
                 session->nextRunAt = micros() + waitTime;
                 if (!is_bound && hubsan_get_binding_state(hubsanSession))
                     session->bindTime = millis();

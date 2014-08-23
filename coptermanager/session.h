@@ -11,6 +11,7 @@ enum {
 };
 
 struct HubsanSession {
+    u32 txid;
     u8 packet[16];
     u8 channel;
     u32 sessionid;

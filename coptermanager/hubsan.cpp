@@ -42,7 +42,6 @@ enum {
 };
 
 static const u8 allowed_ch[] = {0x14, 0x1e, 0x28, 0x32, 0x3c, 0x46, 0x50, 0x5a, 0x64, 0x6e, 0x78, 0x82};
-static const u32 txid = 0xdb042679;
 
 enum {
     BIND_1,
@@ -180,10 +179,10 @@ static void hubsan_build_bind_packet(HubsanSession *session, u8 state)
     session->packet[8] = 0xea;
     session->packet[9] = 0x9e;
     session->packet[10] = 0x50;
-    session->packet[11] = (txid >> 24) & 0xff;
-    session->packet[12] = (txid >> 16) & 0xff;
-    session->packet[13] = (txid >>  8) & 0xff;
-    session->packet[14] = (txid >>  0) & 0xff;
+    session->packet[11] = (session->txid >> 24) & 0xff;
+    session->packet[12] = (session->txid >> 16) & 0xff;
+    session->packet[13] = (session->txid >>  8) & 0xff;
+    session->packet[14] = (session->txid >>  0) & 0xff;
     update_crc(session);
 }
 
@@ -227,10 +226,10 @@ static void hubsan_build_packet(HubsanSession *session)
             session->packet[9] |= FLAG_VIDEO;
     }
     session->packet[10] = 0x64;
-    session->packet[11] = (txid >> 24) & 0xff;
-    session->packet[12] = (txid >> 16) & 0xff;
-    session->packet[13] = (txid >>  8) & 0xff;
-    session->packet[14] = (txid >>  0) & 0xff;
+    session->packet[11] = (session->txid >> 24) & 0xff;
+    session->packet[12] = (session->txid >> 16) & 0xff;
+    session->packet[13] = (session->txid >>  8) & 0xff;
+    session->packet[14] = (session->txid >>  0) & 0xff;
     update_crc(session);
 }
 
@@ -354,6 +353,9 @@ inline boolean A7105_busy(void) {
 
 u16 hubsan_cb(HubsanSession *session)
 {
+    // odd stages: TX -> RX (sending)
+    // even stages: RX -> TX (receiving)
+
     switch(session->state) {
     case BIND_1:
     case BIND_3:
@@ -459,6 +461,96 @@ u16 hubsan_cb(HubsanSession *session)
     return 0;
 }
 
+u16 hubsan_multiple_cb(HubsanSession *session)
+{
+    static HubsanSession *bindingSession = NULL;
+    
+    switch(session->state) {
+    case BIND_1:
+        bindingSession = session;
+        A7105_WriteID(0x55201041);
+    case BIND_3:
+    case BIND_5:
+    case BIND_7:
+        hubsan_build_bind_packet(session, session->state == BIND_7 ? 9 : (session->state == BIND_5 ? 1 : session->state + 1 - BIND_1));
+        A7105_Strobe(A7105_STANDBY);
+        A7105_WriteData(session->packet, 16, session->channel);
+        session->state |= WAIT_WRITE;
+        return 3000;
+    case BIND_1 | WAIT_WRITE:
+    case BIND_3 | WAIT_WRITE:
+    case BIND_5 | WAIT_WRITE:
+    case BIND_7 | WAIT_WRITE:
+        //wait for completion
+        for(int i = 0; i < 200; i++) {
+           if(! (A7105_ReadReg(A7105_00_MODE) & 0x01))
+               break;
+        }
+        //if (i == 200)
+        //    printf("Failed to complete write\n");
+        A7105_SetTxRxMode(RX_EN);
+        A7105_Strobe(A7105_RX);
+        session->state &= ~WAIT_WRITE;
+        session->state++;
+        return 4500; //7.5msec elapsed since last write
+    case BIND_2:
+    case BIND_4:
+    case BIND_6:
+        A7105_SetTxRxMode(TX_EN);
+        if(A7105_ReadReg(A7105_00_MODE) & 0x01) {
+            session->state = BIND_1;
+            return 4500; //No signal, restart binding procedure.  12msec elapsed since last write
+        }
+        A7105_ReadData(session->packet, 16);
+        session->state++;
+        if (session->state == BIND_5)
+            A7105_WriteID((session->packet[2] << 24) | (session->packet[3] << 16) | (session->packet[4] << 8) | session->packet[5]);
+        
+        return 500;  //8msec elapsed time since last write;
+    case BIND_8:
+        A7105_SetTxRxMode(TX_EN);
+        if(A7105_ReadReg(A7105_00_MODE) & 0x01) {
+            session->state = BIND_7;
+            return 15000; //22.5msec elapsed since last write
+        }
+        A7105_ReadData(session->packet, 16);
+        if(session->packet[1] == 9) {
+            session->state = DATA_1;
+            A7105_WriteReg(A7105_1F_CODE_I, 0x0F);
+            bindingSession = NULL;
+            //PROTOCOL_SetBindState(0);
+            return 28000; //35.5msec elapsed since last write
+        } else {
+            session->state = BIND_7;
+            return 15000; //22.5 msec elapsed since last write
+        }
+    case DATA_1:
+        A7105_SetPower(Model.tx_power); // keep transmit power in sync
+    case DATA_2:
+    case DATA_3:
+    case DATA_4:
+    case DATA_5:
+        if (bindingSession == NULL) {
+            hubsan_build_packet(session);
+            A7105_WriteID(session->sessionid);
+            A7105_WriteData(session->packet, 16, session->state == DATA_5 ? session->channel + 0x23 : session->channel);
+            
+            // wait for completion
+            for(int i = 0; i < 200; i++) {
+                if(!(A7105_ReadReg(A7105_00_MODE) & 0x01))
+                    break;
+            }
+        }
+        
+        if (session->state == DATA_5)
+            session->state = DATA_1;
+        else
+            session->state++;
+        return 10000;
+    }
+    return 0;
+}
+
 void hubsan_initialize()
 {
     CLOCK_StopTimer();
@@ -470,8 +562,46 @@ void hubsan_initialize()
             break;
     }
 }
-  
-HubsanSession* hubsan_bind()
+
+u32 find_free_sessionid(Session* sessions[], int num_sessions)
+{
+    u32 sessionid;
+    int isfree = false;
+    while(!isfree) {
+        sessionid = rand32_r(0, 0);
+        isfree = true;
+        for(int i=0; i<num_sessions; i++) {
+            if (sessions[i]->copterType == HUBSAN_X4) {
+                if (((HubsanSession*)sessions[i]->copterSession)->sessionid == sessionid) {
+                    isfree = false;
+                    break;
+                }
+            }
+        }
+    }
+    return sessionid;
+}
+
+u8 find_free_channel(Session* sessions[], int num_sessions)
+{
+    u8 channel;
+    int isfree = false;
+    while(!isfree) {
+        channel = allowed_ch[rand32_r(0, 0) % sizeof(allowed_ch)];
+        isfree = true;
+        for(int i=0; i<num_sessions; i++) {
+            if (sessions[i]->copterType == HUBSAN_X4) {
+                if (((HubsanSession*)sessions[i]->copterSession)->channel == channel) {
+                    isfree = false;
+                    break;
+                }
+            }
+        }
+    }
+    return channel;
+}
+
+HubsanSession* hubsan_bind(int copterid, Session* sessions[], int num_sessions)
 {
     HubsanSession *session = (HubsanSession*)malloc(sizeof(HubsanSession));
     memset(session, 0, sizeof(HubsanSession));
@@ -480,8 +610,9 @@ HubsanSession* hubsan_bind()
     session->rudder = session->aileron = session->elevator = 0x7F;
     session->led = 1;
    
-    session->sessionid = rand32_r(0, 0);
-    session->channel = allowed_ch[rand32_r(0, 0) % sizeof(allowed_ch)];
+    session->txid = 0xdb042679 + copterid;
+    session->sessionid = find_free_sessionid(sessions, num_sessions);
+    session->channel = find_free_channel(sessions, num_sessions);
     //PROTOCOL_SetBindState(0xFFFFFFFF);
     session->state = BIND_1;
     session->packet_count=0;
