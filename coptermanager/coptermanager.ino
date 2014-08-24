@@ -33,6 +33,7 @@ int hex2int(byte *arr, int startpos, int endpos)
     return ret;
 }
 
+int response[7] = {0};
 void loop()
 {
     if (Serial.available() >= 3) {
@@ -49,12 +50,20 @@ void loop()
         #endif
         
         DEBUG_MSG("read values " + String(copterid) + " " + String(command) + " " + String(value));
-        int result_code = manager_processcommand(copterid, command, value);
+        int result_code = manager_processcommand(copterid, command, value, response);
         
         #ifdef SERIAL_ASCII
-            Serial.println("command result " + String(result_code, HEX));
+            Serial.print("command result ");
+            Serial.print(String(result_code, HEX));
+            for (int i=1; i <= response[0]; i++) {
+                Serial.print(" "+String(response[i], HEX));
+            }
+            Serial.println();
         #else
             Serial.write(result_code);
+            for (int i=1; i <= response[0]; i++) {
+                Serial.write(response[i]);
+            }
         #endif
     }
     

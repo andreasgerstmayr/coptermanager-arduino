@@ -45,7 +45,7 @@ static int copter_bind(int type)
     return PROTOCOL_ALL_SLOTS_FULL;
 }
 
-int manager_process_hubsan_command(Session *session, int command, int value)
+int manager_process_hubsan_command(Session *session, int command, int value, int* response)
 {
     HubsanSession *hubsanSession = (HubsanSession*)session->copterSession;
     
@@ -115,6 +115,54 @@ int manager_process_hubsan_command(Session *session, int command, int value)
         
         case COPTER_GETSTATE:
             return hubsan_get_binding_state(hubsanSession) ? PROTOCOL_BOUND : PROTOCOL_UNBOUND;
+            
+        case COPTER_TELEMETRY:
+            switch(value) {
+                case TELEMETRY_ALTITUDE:
+                    response[0] = 2;
+                    response[1] = (hubsanSession->estAltitude >> 8) & 0xFF;
+                    response[2] = (hubsanSession->estAltitude >> 0) & 0xFF;
+                    break;
+                    
+                case TELEMETRY_VOLTAGE:
+                    response[0] = 1;
+                    response[1] = hubsanSession->batteryVolts;
+                    break;
+                    
+                case TELEMETRY_GYROSCOPE:
+                    response[0] = 6;
+                    response[1] = (hubsanSession->gyroData[0] >> 8) & 0xFF;
+                    response[2] = (hubsanSession->gyroData[0] >> 0) & 0xFF;
+                    response[3] = (hubsanSession->gyroData[1] >> 8) & 0xFF;
+                    response[4] = (hubsanSession->gyroData[1] >> 0) & 0xFF;
+                    response[5] = (hubsanSession->gyroData[2] >> 8) & 0xFF;
+                    response[6] = (hubsanSession->gyroData[2] >> 0) & 0xFF;
+                    break;
+                    
+                case TELEMETRY_ACCELEROMETER:
+                    response[0] = 6;
+                    response[1] = (hubsanSession->accData[0] >> 8) & 0xFF;
+                    response[2] = (hubsanSession->accData[0] >> 0) & 0xFF;
+                    response[3] = (hubsanSession->accData[1] >> 8) & 0xFF;
+                    response[4] = (hubsanSession->accData[1] >> 0) & 0xFF;
+                    response[5] = (hubsanSession->accData[2] >> 8) & 0xFF;
+                    response[6] = (hubsanSession->accData[2] >> 0) & 0xFF;
+                    break;
+                    
+                case TELEMETRY_ANGLE:
+                    response[0] = 6;
+                    response[1] = (hubsanSession->angle[0] >> 8) & 0xFF;
+                    response[2] = (hubsanSession->angle[0] >> 0) & 0xFF;
+                    response[3] = (hubsanSession->angle[1] >> 8) & 0xFF;
+                    response[4] = (hubsanSession->angle[1] >> 0) & 0xFF;
+                    response[5] = (hubsanSession->angle[2] >> 8) & 0xFF;
+                    response[6] = (hubsanSession->angle[2] >> 0) & 0xFF;
+                    break;
+                    
+                default:
+                    return PROTOCOL_INVALID_TELEMETRY_OPTION;
+            }
+            return PROTOCOL_OK;
         
         case COPTER_EMERGENCY:
             hubsanSession->throttle = 0;
@@ -135,12 +183,13 @@ int manager_process_hubsan_command(Session *session, int command, int value)
 }
 
 // copterid: 1..NUM_COPTERS
-int manager_processcommand(int copterid, int command, int value)
+int manager_processcommand(int copterid, int command, int value, int* response)
 {
+    // no additional response
+    response[0] = 0;
+    
     #ifdef DEBUG
     if (command == 0xFF) {
-        // 300-400 ms bind time
-        DEBUG_MSG("int time: "+String(sessions[copterid-1]->initTime)+", bind time: "+String(sessions[copterid-1]->bindTime));
     }
     #endif
     
@@ -165,10 +214,10 @@ int manager_processcommand(int copterid, int command, int value)
         if (session->emergencyFlag == 1 && command != COPTER_DISCONNECT)
             return PROTOCOL_EMERGENCY_MODE_ON;
         
-        int resultCode = PROTOCOL_OK;
+        int resultCode;
         switch(session->copterType) {
             case HUBSAN_X4:
-               resultCode = manager_process_hubsan_command(session, command, value);
+               resultCode = manager_process_hubsan_command(session, command, value, response);
                break;
                
             default:
@@ -189,6 +238,7 @@ int manager_processcommand(int copterid, int command, int value)
     }
 }
 
+int dummy_response[7];
 inline void manager_copterloop(int copterid)
 {
     Session* session = sessions[copterid-1];
@@ -196,14 +246,14 @@ inline void manager_copterloop(int copterid)
     if (session->bindTime == 0) {
         if ((millis() - session->initTime) > MAX_UNBOUND_TIME) {
             DEBUG_MSG("removing inactive copter " + String(copterid) + " (max unbound time reached)");
-            manager_processcommand(copterid, COPTER_DISCONNECT, 0);
+            manager_processcommand(copterid, COPTER_DISCONNECT, 0, dummy_response);
             return;
         }
     }
     else {
         if ((millis() - session->bindTime) > MAX_BOUND_TIME) {
             DEBUG_MSG("removing inactive copter " + String(copterid) + " (max bound time reached)");
-            manager_processcommand(copterid, COPTER_DISCONNECT, 0);
+            manager_processcommand(copterid, COPTER_DISCONNECT, 0, dummy_response);
             return;
         }
     }

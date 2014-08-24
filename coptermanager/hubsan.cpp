@@ -356,6 +356,7 @@ u16 hubsan_cb(HubsanSession *session)
     // odd stages: TX -> RX (sending)
     // even stages: RX -> TX (receiving)
 
+    int i;
     switch(session->state) {
     case BIND_1:
     case BIND_3:
@@ -371,12 +372,12 @@ u16 hubsan_cb(HubsanSession *session)
     case BIND_5 | WAIT_WRITE:
     case BIND_7 | WAIT_WRITE:
         //wait for completion
-        for(int i = 0; i< 20; i++) {
+        for(i = 0; i< 200; i++) {
            if(! (A7105_ReadReg(A7105_00_MODE) & 0x01))
                break;
         }
-        //if (i == 20)
-        //    printf("Failed to complete write\n");
+        if (i == 200)
+            DEBUG_MSG("Failed to complete write\n");
         A7105_SetTxRxMode(RX_EN);
         A7105_Strobe(A7105_RX);
         session->state &= ~WAIT_WRITE;
@@ -388,6 +389,7 @@ u16 hubsan_cb(HubsanSession *session)
         A7105_SetTxRxMode(TX_EN);
         if(A7105_ReadReg(A7105_00_MODE) & 0x01) {
             session->state = BIND_1;
+            //DEBUG_MSG("No signal, restart binding procedure");
             return 4500; //No signal, restart binding procedure.  12msec elapsed since last write
         }
         A7105_ReadData(session->packet, 16);
@@ -400,6 +402,7 @@ u16 hubsan_cb(HubsanSession *session)
         A7105_SetTxRxMode(TX_EN);
         if(A7105_ReadReg(A7105_00_MODE) & 0x01) {
             session->state = BIND_7;
+            //DEBUG_MSG("Transmittion in progress, waiting");
             return 15000; //22.5msec elapsed since last write
         }
         A7105_ReadData(session->packet, 16);
@@ -410,6 +413,7 @@ u16 hubsan_cb(HubsanSession *session)
             return 28000; //35.5msec elapsed since last write
         } else {
             session->state = BIND_7;
+            DEBUG_MSG("Got unknown packet, first 2 bytes: "+String(session->packet[0], HEX) + " " + String(session->packet[1], HEX));
             return 15000; //22.5 msec elapsed since last write
         }
     case DATA_1:

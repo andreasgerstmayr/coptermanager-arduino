@@ -30,10 +30,10 @@ struct HubsanSession {
     int video;
     
     int16_t estAltitude;
-    uint8_t batteryVolts = 0xFF;
-    int16_t gyroData[3] = {0};
-    int16_t accData[3] = {0};
-    int16_t angle[3] = {0};
+    uint8_t batteryVolts;
+    int16_t gyroData[3];
+    int16_t accData[3];
+    int16_t angle[3];
 };
 
 struct Session {

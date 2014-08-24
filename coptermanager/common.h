@@ -5,9 +5,9 @@
 #include "config.h"
 
 #ifdef DEBUG
-  #define DEBUG_MSG(x)  Serial.println (x)
+  #define DEBUG_MSG(x) Serial.println (x)
 #else
-  #define DEBUG_MSG(x)
+  #define DEBUG_MSG(x) (void)0
 #endif
 
 typedef int8_t s8;
