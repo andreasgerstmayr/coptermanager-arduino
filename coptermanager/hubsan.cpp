@@ -41,8 +41,6 @@ enum {
     LAST_PROTO_OPT,
 };
 
-static const u8 allowed_ch[] = {0x14, 0x1e, 0x28, 0x32, 0x3c, 0x46, 0x50, 0x5a, 0x64, 0x6e, 0x78, 0x82};
-
 enum {
     BIND_1,
     BIND_2,
@@ -595,7 +593,7 @@ u8 find_free_channel(Session* sessions[], int num_sessions)
     u8 channel;
     int isfree = false;
     while(!isfree) {
-        channel = allowed_ch[rand32_r(0, 0) % sizeof(allowed_ch)];
+        channel = allowed_channels[rand32_r(0, 0) % sizeof(allowed_channels)];
         isfree = true;
         for(int i=0; i<num_sessions; i++) {
             if (sessions[i]->copterType == HUBSAN_X4) {
@@ -620,7 +618,11 @@ HubsanSession* hubsan_bind(int copterid, Session* sessions[], int num_sessions)
    
     session->txid = 0xdb042679 + copterid;
     session->sessionid = find_free_sessionid(sessions, num_sessions);
-    session->channel = find_free_channel(sessions, num_sessions);
+    #ifdef FIXED_CHANNEL
+        session->channel = FIXED_CHANNEL;
+    #else
+        session->channel = find_free_channel(sessions, num_sessions);
+    #endif
     //PROTOCOL_SetBindState(0xFFFFFFFF);
     session->state = BIND_1;
     session->packet_count=0;

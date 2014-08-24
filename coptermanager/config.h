@@ -19,5 +19,6 @@
 //#define DEBUG
 //#define DEBUG_TELEMETRY
 //#define SERIAL_ASCII
+//#define FIXED_CHANNEL 0x6E
 
 #endif

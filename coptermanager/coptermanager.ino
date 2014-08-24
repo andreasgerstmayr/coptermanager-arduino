@@ -2,6 +2,7 @@
 #include <SPI.h>
 #include "common.h"
 #include "manager.h"
+#include "diagnostics.h"
 
 void setup()
 {

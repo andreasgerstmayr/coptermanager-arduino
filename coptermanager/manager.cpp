@@ -194,9 +194,10 @@ int manager_processcommand(int copterid, int command, int value, int checksum, i
     
     #ifdef DEBUG
     if (command == 0xFF) {
-        Serial.println("info:");
+        Serial.println("INFO:");
         HubsanSession *hubsanSession = (HubsanSession*)sessions[copterid-1]->copterSession;
         Serial.println("channel: "+String(hubsanSession->channel));
+        Serial.println();
         return PROTOCOL_OK;
     }
     #endif
