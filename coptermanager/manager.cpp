@@ -17,7 +17,7 @@ void manager_init()
     DEBUG_MSG("initialization successful");
 }
 
-static int copter_bind(int type)
+static int copter_bind(int type, int *response)
 {
     for (int copterid=1; copterid <= NUM_COPTERS; copterid++) {
         if (sessions[copterid-1] == NULL) {
@@ -38,7 +38,9 @@ static int copter_bind(int type)
                 default:
                     return PROTOCOL_INVALID_COPTER_TYPE;
             }
-            return copterid;
+            response[0] = 1;
+            response[1] = copterid;
+            return PROTOCOL_OK;
         }
     }
     
@@ -114,7 +116,9 @@ int manager_process_hubsan_command(Session *session, int command, int value, int
             }
         
         case COPTER_GETSTATE:
-            return hubsan_get_binding_state(hubsanSession) ? PROTOCOL_BOUND : PROTOCOL_UNBOUND;
+            response[0] = 1;
+            response[1] = hubsan_get_binding_state(hubsanSession);
+            return PROTOCOL_OK;
             
         case COPTER_TELEMETRY:
             switch(value) {
@@ -183,18 +187,25 @@ int manager_process_hubsan_command(Session *session, int command, int value, int
 }
 
 // copterid: 1..NUM_COPTERS
-int manager_processcommand(int copterid, int command, int value, int* response)
+int manager_processcommand(int copterid, int command, int value, int checksum, int* response)
 {
     // no additional response
     response[0] = 0;
     
     #ifdef DEBUG
     if (command == 0xFF) {
+        Serial.println("info:");
+        HubsanSession *hubsanSession = (HubsanSession*)sessions[copterid-1]->copterSession;
+        Serial.println("channel: "+String(hubsanSession->channel));
+        return PROTOCOL_OK;
     }
     #endif
     
-    if (command == COPTER_BIND) {
-        return copter_bind(value);
+    if (checksum != calculate_checksum(copterid, command, value)) {
+        return PROTOCOL_INVALID_CHECKSUM;
+    }
+    else if (command == COPTER_BIND) {
+        return copter_bind(value, response);
     }
     else if (command == COPTER_LISTCOPTERS) {
         int bitmask = 0;
@@ -202,7 +213,9 @@ int manager_processcommand(int copterid, int command, int value, int* response)
             if (sessions[copterid-1] != NULL)
                 bitmask |= 1 << (copterid-1);
         }
-        return bitmask;
+        response[0] = 1;
+        response[1] = bitmask;
+        return PROTOCOL_OK;
     }
     else {
         if (copterid < 1 || copterid > NUM_COPTERS || sessions[copterid-1] == NULL)
@@ -236,6 +249,8 @@ int manager_processcommand(int copterid, int command, int value, int* response)
         
         return resultCode;
     }
+    
+    return PROTOCOL_UNKNOWN_COMMAND;
 }
 
 int dummy_response[7];
@@ -246,14 +261,14 @@ inline void manager_copterloop(int copterid)
     if (session->bindTime == 0) {
         if ((millis() - session->initTime) > MAX_UNBOUND_TIME) {
             DEBUG_MSG("removing inactive copter " + String(copterid) + " (max unbound time reached)");
-            manager_processcommand(copterid, COPTER_DISCONNECT, 0, dummy_response);
+            manager_processcommand(copterid, COPTER_DISCONNECT, 0, calculate_checksum(copterid, COPTER_DISCONNECT, 0), dummy_response);
             return;
         }
     }
     else {
         if ((millis() - session->bindTime) > MAX_BOUND_TIME) {
             DEBUG_MSG("removing inactive copter " + String(copterid) + " (max bound time reached)");
-            manager_processcommand(copterid, COPTER_DISCONNECT, 0, dummy_response);
+            manager_processcommand(copterid, COPTER_DISCONNECT, 0, calculate_checksum(copterid, COPTER_DISCONNECT, 0), dummy_response);
             return;
         }
     }

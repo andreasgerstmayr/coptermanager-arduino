@@ -31,20 +31,25 @@ enum Command {
 
 enum ResultCode {
     PROTOCOL_OK                       = 0x00,
-    PROTOCOL_UNBOUND                  = 0xE0,
-    PROTOCOL_BOUND                    = 0xE1,
-    PROTOCOL_INVALID_COPTER_TYPE      = 0xF0,
-    PROTOCOL_ALL_SLOTS_FULL           = 0xF1,
-    PROTOCOL_INVALID_SLOT             = 0xF2,
-    PROTOCOL_VALUE_OUT_OF_RANGE       = 0xF3,
-    PROTOCOL_EMERGENCY_MODE_ON        = 0xF4,
-    PROTOCOL_NO_TELEMETRY             = 0xF5,
-    PROTOCOL_INVALID_TELEMETRY_OPTION = 0xF6,
-    PROTOCOL_UNKNOWN_COMMAND          = 0xF7
+    PROTOCOL_INVALID_CHECKSUM         = 0xF0,
+    PROTOCOL_INVALID_COPTER_TYPE      = 0xF1,
+    PROTOCOL_ALL_SLOTS_FULL           = 0xF2,
+    PROTOCOL_INVALID_SLOT             = 0xF3,
+    PROTOCOL_VALUE_OUT_OF_RANGE       = 0xF4,
+    PROTOCOL_EMERGENCY_MODE_ON        = 0xF5,
+    PROTOCOL_NO_TELEMETRY             = 0xF6,
+    PROTOCOL_INVALID_TELEMETRY_OPTION = 0xF7,
+    PROTOCOL_UNKNOWN_COMMAND          = 0xF8
 };
 
+inline int calculate_checksum(int copterid, int command, int value)
+{
+   int sum = copterid + command + value;
+   return (256 - (sum % 256)) & 0xFF;
+}
+
 void manager_init();
-int manager_processcommand(int copterid, int command, int value, int* response);
+int manager_processcommand(int copterid, int command, int value, int checksum, int* response);
 void manager_loop();
 
 #endif

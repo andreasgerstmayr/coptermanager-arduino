@@ -372,11 +372,11 @@ u16 hubsan_cb(HubsanSession *session)
     case BIND_5 | WAIT_WRITE:
     case BIND_7 | WAIT_WRITE:
         //wait for completion
-        for(i = 0; i< 200; i++) {
+        for(i = 0; i< 20; i++) {
            if(! (A7105_ReadReg(A7105_00_MODE) & 0x01))
                break;
         }
-        if (i == 200)
+        if (i == 20)
             DEBUG_MSG("Failed to complete write\n");
         A7105_SetTxRxMode(RX_EN);
         A7105_Strobe(A7105_RX);
@@ -410,6 +410,7 @@ u16 hubsan_cb(HubsanSession *session)
             session->state = DATA_1;
             A7105_WriteReg(A7105_1F_CODE_I, 0x0F);
             //PROTOCOL_SetBindState(0);
+            DEBUG_MSG("copter bound.");
             return 28000; //35.5msec elapsed since last write
         } else {
             session->state = BIND_7;
@@ -468,7 +469,7 @@ u16 hubsan_cb(HubsanSession *session)
 u16 hubsan_multiple_cb(HubsanSession *session)
 {
     static HubsanSession *bindingSession = NULL;
-    
+    int i;
     switch(session->state) {
     case BIND_1:
         bindingSession = session;
@@ -486,12 +487,12 @@ u16 hubsan_multiple_cb(HubsanSession *session)
     case BIND_5 | WAIT_WRITE:
     case BIND_7 | WAIT_WRITE:
         //wait for completion
-        for(int i = 0; i < 200; i++) {
+        for(int i = 0; i < 20; i++) {
            if(! (A7105_ReadReg(A7105_00_MODE) & 0x01))
                break;
         }
-        //if (i == 200)
-        //    printf("Failed to complete write\n");
+        if (i == 20)
+            DEBUG_MSG("Failed to complete write\n");
         A7105_SetTxRxMode(RX_EN);
         A7105_Strobe(A7105_RX);
         session->state &= ~WAIT_WRITE;
@@ -523,6 +524,7 @@ u16 hubsan_multiple_cb(HubsanSession *session)
             A7105_WriteReg(A7105_1F_CODE_I, 0x0F);
             bindingSession = NULL;
             //PROTOCOL_SetBindState(0);
+            DEBUG_MSG("another copter bound.");
             return 28000; //35.5msec elapsed since last write
         } else {
             session->state = BIND_7;
@@ -540,10 +542,12 @@ u16 hubsan_multiple_cb(HubsanSession *session)
             A7105_WriteData(session->packet, 16, session->state == DATA_5 ? session->channel + 0x23 : session->channel);
             
             // wait for completion
-            for(int i = 0; i < 200; i++) {
+            for(i = 0; i < 20; i++) {
                 if(!(A7105_ReadReg(A7105_00_MODE) & 0x01))
                     break;
             }
+            if (i == 20)
+                DEBUG_MSG("Failed to complete write\n");
         }
         
         if (session->state == DATA_5)

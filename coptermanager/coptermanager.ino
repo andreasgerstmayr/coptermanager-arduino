@@ -33,38 +33,48 @@ int hex2int(byte *arr, int startpos, int endpos)
     return ret;
 }
 
+void send_response(int result_code, int* response)
+{
+    #ifdef SERIAL_ASCII
+        Serial.print("command result ");
+        Serial.print(String(result_code, HEX));
+        for (int i=1; i <= response[0]; i++) {
+            Serial.print(" "+String(response[i], HEX));
+        }
+        Serial.println();
+    #else
+        int sum = result_code;
+        Serial.write(result_code);
+        for (int i=1; i <= response[0]; i++) {
+            Serial.write(response[i]);
+            sum += response[i];
+        }
+        Serial.write((256 - (sum % 256)) & 0xFF);
+    #endif
+}
+
 int response[7] = {0};
 void loop()
 {
-    if (Serial.available() >= 3) {
-        #ifdef SERIAL_ASCII
-            byte data[6];
-            Serial.readBytes(data, 6);
-            int copterid = hex2int(data, 0, 1);
-            int command = hex2int(data, 2, 3);
-            int value = hex2int(data, 4, 5);
-        #else
-            int copterid = Serial.read();
-            int command = Serial.read();
-            int value = Serial.read();
-        #endif
-        
+    #ifdef SERIAL_ASCII
+    if (Serial.available() >= 6) {
+        byte data[6];
+        Serial.readBytes(data, 6);
+        int copterid = hex2int(data, 0, 1);
+        int command = hex2int(data, 2, 3);
+        int value = hex2int(data, 4, 5);
+        int checksum = calculate_checksum(copterid, command, value); // don't use checksum when SERIAL_ASCII is enabled
+    #else
+    if (Serial.available() >= 4) {
+        int copterid = Serial.read();
+        int command = Serial.read();
+        int value = Serial.read();
+        int checksum = Serial.read();
+    #endif
+    
         DEBUG_MSG("read values " + String(copterid) + " " + String(command) + " " + String(value));
-        int result_code = manager_processcommand(copterid, command, value, response);
-        
-        #ifdef SERIAL_ASCII
-            Serial.print("command result ");
-            Serial.print(String(result_code, HEX));
-            for (int i=1; i <= response[0]; i++) {
-                Serial.print(" "+String(response[i], HEX));
-            }
-            Serial.println();
-        #else
-            Serial.write(result_code);
-            for (int i=1; i <= response[0]; i++) {
-                Serial.write(response[i]);
-            }
-        #endif
+        int result_code = manager_processcommand(copterid, command, value, checksum, response);
+        send_response(result_code, response);
     }
     
     manager_loop();
