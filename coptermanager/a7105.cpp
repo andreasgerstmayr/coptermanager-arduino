@@ -29,15 +29,19 @@ inline static void CS_LO() {
     digitalWrite(CS_PIN, LOW);
 }
 
+// Set CS pin mode, initialse and set sensible defaults for SPI, set GIO1 as output on chip
 void A7105_Setup() {
+    // initialise the cs lock pin
     pinMode(CS_PIN, OUTPUT);
+
+    // initialise SPI, set mode and byte order
     SPI.begin();
     SPI.setDataMode(SPI_MODE0);
-    // SPI.setClockDivider(10);
     SPI.setBitOrder(MSBFIRST);
     
-    // set gpio1 to SDO (MISO) by writing to reg GIO1S
-    A7105_WriteReg(A7105_0B_GPIO1_PIN1, 0x19); // 0b0110
+    // set GIO1 to SDO (MISO) by writing to reg GIO1S
+    // (this instructs the chip to use GIO1 as the output pin)
+    A7105_WriteReg(A7105_0B_GPIO1_PIN1, 0x19); // 0b11001
 }
 
 void A7105_WriteReg(u8 address, u8 data)
@@ -92,10 +96,11 @@ void A7105_SetTxRxMode(enum TXRX_State mode)
 
 int A7105_Reset()
 {
+    // this writes a null value to register 0x00, which triggers the reset
     A7105_WriteReg(0x00, 0x00);
     usleep(1000);
     // set gpio1 to SDO (MISO) by writing to reg GIO1S
-    A7105_WriteReg(A7105_0B_GPIO1_PIN1, 0x19); // 0b0110    
+    A7105_WriteReg(A7105_0B_GPIO1_PIN1, 0x19); // 0b11001    
     A7105_SetTxRxMode(TXRX_OFF);
     int result = A7105_ReadReg(0x10) == 0x9E;
     A7105_Strobe(A7105_STANDBY);
